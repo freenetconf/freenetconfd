@@ -1,0 +1,17 @@
+#
+# freenetconfd uci configuration
+#
+
+config freenetconfd
+	option addr '::'
+	option port '830'
+	option username 'admin'
+	option password 'admin'
+	option host_rsa_key '/etc/netconf/netconf_host_rsa_key'
+	option host_dsa_key '/etc/netconf/netconf_host_dsa_key'
+	option client_key_pub '/etc/netconf/authorized_keys'
+	option log_level 0
+	option ssh_timeout_socket 3
+	option ssh_timeout_read 1000
+	option ssh_pcap_enable 0
+	option ssh_pcap_file "/var/log/ssh.pcap"
