@@ -28,7 +28,7 @@ enum {
 	PASSWORD,
 	HOST_DSA_KEY,
 	HOST_RSA_KEY,
-	CLIENT_KEY_PUB,
+	AUTHORIZED_KEYS_FILE,
 	LOG_LEVEL,
 	SSH_TIMEOUT_SOCKET,
 	SSH_TIMEOUT_READ,
@@ -44,7 +44,7 @@ const struct blobmsg_policy config_policy[__OPTIONS_COUNT] = {
 	[PASSWORD] = { .name = "password", .type = BLOBMSG_TYPE_STRING },
 	[HOST_DSA_KEY] = { .name = "host_dsa_key", .type = BLOBMSG_TYPE_STRING },
 	[HOST_RSA_KEY] = { .name = "host_rsa_key", .type = BLOBMSG_TYPE_STRING },
-	[CLIENT_KEY_PUB] = { .name = "client_key_pub", .type = BLOBMSG_TYPE_STRING },
+	[AUTHORIZED_KEYS_FILE] = { .name = "authorized_keys_file", .type = BLOBMSG_TYPE_STRING },
 	[LOG_LEVEL] = { .name = "log_level", .type = BLOBMSG_TYPE_INT32 },
 	[SSH_TIMEOUT_SOCKET] = { .name = "ssh_timeout_socket", .type = BLOBMSG_TYPE_INT32 },
 	[SSH_TIMEOUT_READ] = { .name = "ssh_timeout_read", .type = BLOBMSG_TYPE_INT32 },
@@ -88,7 +88,7 @@ int config_load()
 	blobmsg_parse(config_policy, __OPTIONS_COUNT, tb, blob_data(buf.head), blob_len(buf.head));
 
 	/* optional configs */
-	config.client_key_pub = NULL;
+	config.authorized_keys_file = NULL;
 	config.ssh_timeout_socket = 3;
 	config.ssh_timeout_read = 1000;
 	config.ssh_pcap_enable = 0;
@@ -119,8 +119,8 @@ int config_load()
 	rc = asprintf(&config.host_rsa_key, "%s", blobmsg_get_string(c));
 	if (rc < 0) goto exit;
 
-	if ((c = tb[CLIENT_KEY_PUB]))
-	rc = asprintf(&config.client_key_pub, "%s", blobmsg_get_string(c));
+	if ((c = tb[AUTHORIZED_KEYS_FILE]))
+	rc = asprintf(&config.authorized_keys_file, "%s", blobmsg_get_string(c));
 
 	if ((c = tb[SSH_TIMEOUT_SOCKET]))
 		config.ssh_timeout_socket = blobmsg_get_u32(c);
@@ -155,6 +155,6 @@ void config_exit()
 	free(config.password);
 	free(config.host_dsa_key);
 	free(config.host_rsa_key);
-	free(config.client_key_pub);
+	free(config.authorized_keys_file);
 	free(config.ssh_pcap_file);
 }

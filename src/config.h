@@ -26,7 +26,7 @@ struct config_t {
 	char *password;
 	char *host_dsa_key;
 	char *host_rsa_key;
-	char *client_key_pub;
+	char *authorized_keys_file;
 	uint32_t log_level;
 	uint32_t ssh_timeout_socket;
 	uint32_t ssh_timeout_read;

@@ -205,7 +205,7 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 			key_client = ssh_message_auth_pubkey(ssh_message);
 			if (!key_client) break;
 
-			ssh_pki_import_pubkey_file(config.client_key_pub, &key_server);
+			ssh_pki_import_pubkey_file(config.authorized_keys_file, &key_server);
 			if (!key_server)break;
 
 			rc = ssh_key_cmp(key_client,key_server, SSH_KEY_CMP_PUBLIC);
