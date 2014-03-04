@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <libssh/libssh.h>
 #include <libssh/server.h>
@@ -377,6 +378,29 @@ ssh_netconf_init(void)
 	if (!s.ssh_bind) {
 		fprintf(stderr, "ssh_netconf_init: not enough memory (ssh_bind_new)\n");
 		return -1;
+	}
+
+	/* generate host keys they do not exist */
+	if (access(config.host_rsa_key, F_OK) == -1) {
+		fprintf(stderr, "key doesn't exist: creating %s...\n", config.host_rsa_key);
+		ssh_key host_rsa_key;
+		rc = ssh_pki_generate(SSH_KEYTYPE_RSA, 4096, &host_rsa_key);
+		if (rc == SSH_OK) {
+			rc = ssh_pki_export_privkey_file(host_rsa_key, "", NULL, NULL, config.host_rsa_key);
+			if (rc != SSH_OK) printf("unable to save key to file, do you have required permissions?\n");
+			free(host_rsa_key);
+		}
+	}
+
+	if (access(config.host_dsa_key, F_OK) == -1) {
+		fprintf(stderr, "key doesn't exist: creating %s...\n", config.host_dsa_key);
+		ssh_key host_dsa_key;
+		rc = ssh_pki_generate(SSH_KEYTYPE_DSS, 4096, &host_dsa_key);
+		if (rc == SSH_OK) {
+			rc = ssh_pki_export_privkey_file(host_dsa_key, "", NULL, NULL, config.host_dsa_key);
+			if (rc != SSH_OK) printf("unable to save key to file, do you have required permissions?\n");
+			free(host_dsa_key);
+		}
 	}
 
 	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_BINDADDR, config.addr);
