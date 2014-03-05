@@ -1,0 +1,21 @@
+# LIBDMCONFIG_FOUND - true if library and headers were found
+# LIBDMCONFIG_INCLUDE_DIRS - include directories
+# LIBDMCONFIG_LIBRARIES - library directories
+
+find_package(PkgConfig)
+pkg_check_modules(PC_LIBDMCONFIG QUIET dmconfig)
+
+find_path(LIBDMCONFIG_INCLUDE_DIR dmconfig.h
+	HINTS ${PC_LIBDMCONFIG_INCLUDEDIR} ${PC_LIBDMCONFIG_INCLUDE_DIRS} PATH_SUFFIXES libdmconfig)
+
+find_library(LIBDMCONFIG_LIBRARY NAMES dmconfig libdmconfig
+	HINTS ${PC_LIBDMCONFIG_LIBDIR} ${PC_LIBDMCONFIG_LIBRARY_DIRS})
+
+set(LIBDMCONFIG_LIBRARIES ${LIBDMCONFIG_LIBRARY})
+set(LIBDMCONFIG_INCLUDE_DIRS ${LIBDMCONFIG_INCLUDE_DIR})
+
+include(FindPackageHandleStandardArgs)
+
+find_package_handle_standard_args(LIBDMCONFIG DEFAULT_MSG LIBDMCONFIG_LIBRARY LIBDMCONFIG_INCLUDE_DIR)
+
+mark_as_advanced(LIBDMCONFIG_INCLUDE_DIR LIBDMCONFIG_LIBRARY)
