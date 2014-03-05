@@ -206,23 +206,46 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 			key_client = ssh_message_auth_pubkey(ssh_message);
 			if (!key_client) break;
 
-			ssh_pki_import_pubkey_file(config.authorized_keys_file, &key_server);
-			if (!key_server)break;
+			FILE *key_file;
+			char *line = NULL;
+			size_t len = 0;
+			ssize_t read;
+			enum ssh_keytypes_e key_type;
 
-			rc = ssh_key_cmp(key_client,key_server, SSH_KEY_CMP_PUBLIC);
-			if (rc) break;
+			key_file = fopen(config.authorized_keys_file, "r");
+			if (!key_file) {
+				fprintf(stderr, "unable to open authorized_keys_file: '%s'\n", config.authorized_keys_file);
+				break;
+			}
 
-			ssh_key_free(key_server);
+			while ((read = getline(&line, &len, key_file )) != -1) {
+				char type[len];
+				char key[len];
+				sscanf(line, "%s %s", type, key);
+				key_type = ssh_key_type_from_name(type);
+				rc = ssh_pki_import_pubkey_base64(key, key_type, &key_server);
+				if (rc != SSH_OK) continue;
+				rc = ssh_key_cmp(key_client, key_server, SSH_KEY_CMP_PUBLIC);
+				ssh_key_free(key_server);
+				if (!rc) {
+					is_authenticated = 1;
+					break;
+				}
+			}
 
-			is_authenticated = 1;
+			free(line);
+			fclose(key_file);
+
+			if (!is_authenticated) break;
+
 			rc = ssh_message_auth_reply_success(ssh_message, 0);
 		} else if (ssh_message_subtype(ssh_message) == SSH_AUTH_METHOD_PASSWORD
-		    && !strcmp(ssh_message_auth_user(ssh_message), config.username)
-		    && !strcmp(ssh_message_auth_password(ssh_message), config.password))
+			&& !strcmp(ssh_message_auth_user(ssh_message), config.username)
+			&& !strcmp(ssh_message_auth_password(ssh_message), config.password))
 		{
 			is_authenticated = 1;
 			rc = ssh_message_auth_reply_success(ssh_message, 0);
-		} else 
+		} else
 			rc = ssh_message_reply_default(ssh_message);
 
 		ssh_message_free(ssh_message);
@@ -287,7 +310,7 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 		if (!ssh_message) break;
 
 		if ((ssh_message_subtype(ssh_message) == SSH_CHANNEL_REQUEST_SUBSYSTEM)
-		    && !strcmp(ssh_message_channel_request_subsystem(ssh_message), "netconf"))
+			&& !strcmp(ssh_message_channel_request_subsystem(ssh_message), "netconf"))
 		{
 			is_netconf = 1;
 			rc = ssh_message_channel_request_reply_success(ssh_message);
