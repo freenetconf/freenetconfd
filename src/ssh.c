@@ -21,7 +21,6 @@
 #include <libssh/libssh.h>
 #include <libssh/server.h>
 
-#include <libdmconfig/dmconfig.h>
 #include <libubox/uloop.h>
 
 #include "xml.h"

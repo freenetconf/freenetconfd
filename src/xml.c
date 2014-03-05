@@ -18,6 +18,7 @@
 #include <roxml.h>
 #include "messages.h"
 #include "xml.h"
+#include "dmconfig.h"
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
@@ -205,6 +206,30 @@ xml_handle_unlock(char *message_id, node_t *xml_in, char **xml_out)
 static int
 xml_handle_close_session(char *message_id, node_t *xml_in, char **xml_out)
 {
+	/* get param */
+	char *param = dm_get_parameter("system.ntp.1.udp.address");
+	if (param) {
+		printf("%s\n", param);
+		free(param);
+	}
+
+	/* set param */
+	int rp = dm_set_parameter("system.ntp.1.udp.address", "99.de.pool.ntp.org");
+	if (!rp) {
+		printf("set param succesfull\n");
+
+		/* commit change - it wont work on our pc */
+		rp = dm_commit();
+		if (!rp) printf("commited\n");
+	}
+
+	/* get new param value */
+	param = dm_get_parameter("system.ntp.1.udp.address");
+	if (param) {
+		printf("%s\n", param);
+		free(param);
+	}
+
 	node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
 	if (!doc_out) goto exit;
 

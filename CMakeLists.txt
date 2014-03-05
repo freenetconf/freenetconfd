@@ -16,6 +16,8 @@ SET(SOURCES
 	src/xml.c
 	src/xml.h
 	src/config.c
+	src/dmconfig.c
+	src/dmconfig.h
 )
 
 ADD_EXECUTABLE(freenetconfd ${SOURCES})
@@ -39,5 +41,7 @@ TARGET_LINK_LIBRARIES(freenetconfd ${UCI_LIBRARIES})
 FIND_PACKAGE(LIBDMCONFIG REQUIRED)
 INCLUDE_DIRECTORIES(${LIBDMCONFIG_INCLUDE_DIR})
 TARGET_LINK_LIBRARIES(freenetconfd ${LIBDMCONFIG_LIBRARIES})
+
+TARGET_LINK_LIBRARIES(freenetconfd ev)
 
 INSTALL(TARGETS freenetconfd RUNTIME DESTINATION bin)
