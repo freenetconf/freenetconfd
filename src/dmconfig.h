@@ -13,13 +13,14 @@
  * along with freenetconfd. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __CONFIG_H__
-#define __CONFIG_H__
+#ifndef __DMCONFIG_H__
+#define __DMCONFIG_H__
 #include <libdmconfig/dmconfig.h>
 
 int dm_init(struct event_base **base, DMCONTEXT *ctx, DM_AVPGRP **grp);
 void dm_shutdown(struct event_base **base, DMCONTEXT *ctx, DM_AVPGRP **grp);
-int dm_commit();
 char* dm_get_parameter(char *key);
 int dm_set_parameter(char *key, char *value);
+int dm_commit();
+char* dm_dump(char *path);
 #endif /* __CONFIG_H__ */

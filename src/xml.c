@@ -166,16 +166,73 @@ xml_handle_get(char *message_id, node_t *xml_in, char **xml_out)
 	return 0;
 }
 
+/* <get-config><source><running/></source><filter></filter></get-config> */
 static int
 xml_handle_get_config(char *message_id, node_t *xml_in, char **xml_out)
 {
-	return 0;
+	int rc = -1;
+	char *config = NULL;
+	char *filter = NULL;
+	node_t *doc_out = NULL;
+
+	/* get data from input message */
+	node_t *nfilter = roxml_get_chld(xml_in, "filter", 0);
+	if(!nfilter) goto exit;
+
+	node_t *ns = roxml_get_chld(nfilter, NULL, 0);
+
+	/* if empty filter - return all */
+	/* TODO: construct filter if exists from xml when travelping gives us
+ 	 * example */
+	if (ns) filter = NULL;
+
+	config = dm_dump(filter);
+	if (!config) goto exit;
+
+	/* construct message with mand returned data */
+	/* NOTE: libdmconfig always returns xml prolog and adds 'data' node but
+ 	 * only if filter specified, roxml is unable to remove prolog in first case*/
+	doc_out = roxml_load_buf(XML_NETCONF_REPLY_TEMPLATE);
+	if (!doc_out) goto exit;
+
+	node_t *root = roxml_get_chld(doc_out, NULL, 0);
+	if (!root) goto exit;
+
+	node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+	if (!attr) goto exit;
+
+	node_t *nconfig = roxml_add_node(root, 0, ROXML_ELM_NODE, filter ? "" : "data", config + strlen(XML_PROLOG));
+	if (!nconfig) goto exit;
+
+	rc = roxml_commit_changes(doc_out, NULL, xml_out, 0);
+	if (rc) rc = 0;
+
+exit:
+
+	free(config);
+	roxml_close(doc_out);
+
+	return rc;
 }
 
 static int
 xml_handle_edit_config(char *message_id, node_t *xml_in, char **xml_out)
 {
+	char *category_name  = NULL;
 
+	node_t *target = roxml_get_chld(xml_in, "target", 0);
+	if (!target) goto exit;
+
+	node_t *config = roxml_get_chld(xml_in, "config", 0);
+	if(!config) goto exit;
+
+	node_t *category = roxml_get_chld(config, NULL, 0);
+	if (!category) goto exit;
+
+	category_name = roxml_get_name(category, NULL, 0);
+
+exit:
+	free(category_name);
 	return 0;
 }
 
@@ -206,30 +263,6 @@ xml_handle_unlock(char *message_id, node_t *xml_in, char **xml_out)
 static int
 xml_handle_close_session(char *message_id, node_t *xml_in, char **xml_out)
 {
-	/* get param */
-	char *param = dm_get_parameter("system.ntp.1.udp.address");
-	if (param) {
-		printf("%s\n", param);
-		free(param);
-	}
-
-	/* set param */
-	int rp = dm_set_parameter("system.ntp.1.udp.address", "99.de.pool.ntp.org");
-	if (!rp) {
-		printf("set param succesfull\n");
-
-		/* commit change - it wont work on our pc */
-		rp = dm_commit();
-		if (!rp) printf("commited\n");
-	}
-
-	/* get new param value */
-	param = dm_get_parameter("system.ntp.1.udp.address");
-	if (param) {
-		printf("%s\n", param);
-		free(param);
-	}
-
 	node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
 	if (!doc_out) goto exit;
 

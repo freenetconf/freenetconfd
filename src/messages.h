@@ -19,8 +19,11 @@
 #define XML_NETCONF_BASE_1_0_END "]]>]]>"
 #define XML_NETCONF_BASE_1_1_END "\n##\n"
 
-#define XML_NETCONF_HELLO \
+#define XML_PROLOG \
 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" \
+
+#define XML_NETCONF_HELLO \
+XML_PROLOG \
 "<hello xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">" \
  "<capabilities>" \
   "<capability>urn:ietf:params:netconf:base:1.1</capability>" \

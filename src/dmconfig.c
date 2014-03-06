@@ -153,8 +153,40 @@ int dm_commit()
 	}
 
 exit:
-
 	dm_shutdown(&base, &ctx, &grp);
 
 	return rc;
+}
+
+/*
+ * dm_dump() - dump (part of) config
+ *
+ * @char*:	NULL or path (for example "system.ntp.1")
+ *
+ * NULL as path equals to "". Returns NULL on error or value (char*) on
+ * success. Must be freed.
+ */
+char* dm_dump(char *path)
+{
+	DMCONTEXT ctx;
+	DM_AVPGRP *grp = NULL;
+	struct event_base *base;
+	char *rp = NULL;
+	int rc = -1;
+
+	if(!path) path = "";
+
+	rc = dm_init(&base, &ctx, &grp);
+	if (rc) goto exit;
+
+	rc = dm_send_cmd_dump(&ctx, path, &rp);
+	if (rc) {
+		fprintf(stderr, "dmconfig: couldn't dump config\n");
+		goto exit;
+	}
+
+exit:
+	dm_shutdown(&base, &ctx, &grp);
+
+	return rp;
 }
