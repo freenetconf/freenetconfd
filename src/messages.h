@@ -29,8 +29,17 @@ XML_PROLOG \
   "<capability>urn:ietf:params:netconf:base:1.1</capability>" \
   "<capability>urn:ietf:params:netconf:capability:candidate:1.0</capability>" \
   "<capability>urn:ietf:params:netconf:capability:writable-running:1.0</capability>" \
-  "<capability>urn:ietf:params:netconf:capability:validate:1.0</capability>" \
-  "<capability>urn:ietf:params:netconf:capability:notification:1.0</capability>" \
+  "<capability>urn:ietf:params:xml:ns:yang:iana-if-type?module=iana-if-type</capability>"\
+  "<capability>urn:ietf:params:xml:ns:yang:iana-timezones?module=iana-timezones</capability>"\
+  "<capability>urn:ietf:params:xml:ns:yang:ietf-inet-types?module=ietf-inet-types</capability>"\
+  "<capability>urn:ietf:params:xml:ns:yang:ietf-interfaces?module=ietf-interfaces</capability>"\
+  "<capability>urn:ietf:params:xml:ns:yang:ietf-ip?module=ietf-ip</capability>"\
+  "<capability>urn:ietf:params:xml:ns:yang:ietf-netconf-acm?module=ietf-netconf-acm</capability>"\
+  "<capability>urn:ietf:params:xml:ns:yang:ietf-system?module=ietf-system</capability>"\
+  "<capability>urn:ietf:params:xml:ns:yang:ietf-yang-types?module=ietf-yang-types</capability>"\
+  "<capability>urn:ietf:params:xml:ns:yang:opencpe-deviations?module=opencpe-deviations</capability>"\
+  "<capability>urn:ietf:params:xml:ns:yang:opencpe-firmware-mgmt?module=opencpe-firmware-mgmt</capability>"\
+  "<capability>urn:ietf:params:xml:ns:yang:opencpe-system?module=opencpe-system</capability>"\
  "</capabilities>" \
  "<session-id>1</session-id>" \
 "</hello>"
