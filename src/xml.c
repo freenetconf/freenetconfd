@@ -219,6 +219,7 @@ static int
 xml_handle_edit_config(char *message_id, node_t *xml_in, char **xml_out)
 {
 	char *category_name  = NULL;
+	node_t *doc_out = NULL;
 
 	node_t *target = roxml_get_chld(xml_in, "target", 0);
 	if (!target) goto exit;
@@ -231,8 +232,24 @@ xml_handle_edit_config(char *message_id, node_t *xml_in, char **xml_out)
 
 	category_name = roxml_get_name(category, NULL, 0);
 
+	printf(":: got %s\n", category_name);
+
+	if (dm_set_parameters_from_xml(category, category))
+		goto exit;
+
+	doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
+	if (!doc_out) goto exit;
+
+	node_t *root = roxml_get_chld(doc_out, NULL, 0);
+	if (!root) goto exit;
+
+	node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+	if (!attr) goto exit;
+
+	roxml_commit_changes(doc_out, NULL, xml_out, 0);
+
 exit:
-	free(category_name);
+	roxml_close(doc_out);
 	return 0;
 }
 

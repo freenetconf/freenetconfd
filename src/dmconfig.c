@@ -190,3 +190,88 @@ exit:
 
 	return rp;
 }
+
+/*
+ * dm_set_parameters_from_xml() - recursive function to parse xml parameters
+ *
+ * @node_t:	xml node that we have to process
+ * @node_t:	current node that we are processing
+ *
+ * Parse xml structure and create 'cli' dm compatible structure for sending to
+ * mand.
+ */
+
+int dm_set_parameters_from_xml(node_t *root, node_t *n)
+{
+	if (!n || !root) return -1;
+
+	static char *path = NULL;
+
+	char *name = roxml_get_name(n, NULL, 0);
+
+	if (name) {
+
+		int path_len = path ? strlen(path) : 0;
+		int name_len = strlen(name);
+		path = realloc(path, path_len + name_len +2);
+		if (!path) {
+			fprintf(stderr, "dm_set_parameters_from_xml: realloc failed\n");
+			return -1;
+		}
+
+		memset(path + path_len, 0, name_len + 2);
+		strncat(path, name, name_len);
+		strncat(path, ".", 1);
+	}
+
+	node_t *ninstance = roxml_get_attr(n, "instance", 0);
+	if (ninstance) {
+		char *instance = roxml_get_content(ninstance, NULL, 0, NULL);
+		if (instance) {
+			int path_len = path ? strlen(path) : 0;
+			int instance_len = strlen(instance);
+			path = realloc(path, path_len + instance_len +2);
+			if (!path) {
+				fprintf(stderr, "dm_set_parameters_from_xml: realloc failed\n");
+				return -1;
+			}
+
+			memset(path + path_len, 0, instance_len + 2);
+			strncat(path, instance, instance_len);
+			strncat(path, ".", 1);
+		}
+	}
+
+	/* proccess value node and remove it after */
+	char *val = roxml_get_content(n, NULL, 0, NULL);
+	if (val != NULL && strlen(val)) {
+
+		/* remove last '.' */
+		path[strlen(path) -1] = 0;
+
+		dm_set_parameter(path, val);
+		printf("parameter:%s=\"%s\"\n", path, val);
+
+		free(path);
+		path = NULL;
+
+		roxml_del_node(n);
+		return dm_set_parameters_from_xml(root, root);
+	}
+	/* if no values found (all processed) remove this child */
+	node_t *child = roxml_get_chld(n, NULL, 0);
+	if (!child) {
+
+		free(path);
+		path = NULL;
+
+		/* xml processed */
+		if (n == root) return 0;
+
+		roxml_del_node(n);
+
+		return dm_set_parameters_from_xml(root, root);
+	}
+	/* process next child */
+	return dm_set_parameters_from_xml(root, child);
+}

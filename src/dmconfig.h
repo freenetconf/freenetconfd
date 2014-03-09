@@ -16,6 +16,7 @@
 #ifndef __DMCONFIG_H__
 #define __DMCONFIG_H__
 #include <libdmconfig/dmconfig.h>
+#include <roxml.h>
 
 int dm_init(struct event_base **base, DMCONTEXT *ctx, DM_AVPGRP **grp);
 void dm_shutdown(struct event_base **base, DMCONTEXT *ctx, DM_AVPGRP **grp);
@@ -23,4 +24,5 @@ char* dm_get_parameter(char *key);
 int dm_set_parameter(char *key, char *value);
 int dm_commit();
 char* dm_dump(char *path);
+int dm_set_parameters_from_xml(node_t *root, node_t *n);
 #endif /* __CONFIG_H__ */
