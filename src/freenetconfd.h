@@ -16,4 +16,20 @@
 #ifndef __FREENETCONFD_H__
 #define __FREENETCONFD_H__
 
+#include <syslog.h>
+
+#define DEBUG(fmt, ...) do { \
+		fprintf(stderr, "freenetconfd: %s(%d): " fmt, __func__, __LINE__, ## __VA_ARGS__); \
+	} while (0)
+
+#define LOG(fmt, ...) do { \
+		syslog(0, fmt, ## __VA_ARGS__); \
+		fprintf(stderr, "freenetconfd: "fmt, ## __VA_ARGS__); \
+	} while (0)
+
+#define ERROR(fmt, ...) do { \
+		syslog(0, fmt, ## __VA_ARGS__); \
+		fprintf(stderr, "freenetconfd: "fmt, ## __VA_ARGS__); \
+	} while (0)
+
 #endif /* __FREENETCONFD_H__ */

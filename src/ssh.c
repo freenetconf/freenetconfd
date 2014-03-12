@@ -75,7 +75,7 @@ netconf_read(ssh_channel *ssh_channel, char **buffer, int hello_message)
 		bytes_read = ssh_channel_read_timeout(*ssh_channel, read_buffer + read_buffer_len + read, CHUNK_LEN, 0, config.ssh_timeout_read);
 
 		if (bytes_read < 0) {
-			fprintf(stderr, "ssh_channel_read: %d\n", (int)bytes_read);
+			DEBUG("ssh_channel_read: %d\n", (int)bytes_read);
 			goto exit;
 		}
 
@@ -169,7 +169,7 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 
 	ssh_session = ssh_new();
 	if (!ssh_session) {
-		fprintf(stderr, "ssh_cb: not enough memory (ssh_new)\n");
+		ERROR("not enough memory\n");
 		return;
 	}
 	session_id++;
@@ -178,14 +178,14 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 
 	rc = ssh_bind_accept(s.ssh_bind, ssh_session);
 	if (rc != SSH_OK) {
-		fprintf(stderr, "ssh_cb: error accepting a connection (ssh_bind_accept: %s)\n", ssh_get_error(s.ssh_bind));
+		ERROR("error accepting a connection: '%s'\n", ssh_get_error(s.ssh_bind));
 		ssh_free(ssh_session);
 		return;
 	}
 
 	rc = ssh_handle_key_exchange(ssh_session);
 	if (rc != SSH_OK) {
-		fprintf(stderr, "ssh_cb: error exchanging keys (ssh_handle_key_exchange: %s)\n", ssh_get_error(s.ssh_bind));
+		ERROR("error exchanging keys: '%s'\n", ssh_get_error(s.ssh_bind));
 		ssh_disconnect(ssh_session);
 		ssh_free(ssh_session);
 		return;
@@ -214,7 +214,7 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 
 			key_file = fopen(config.authorized_keys_file, "r");
 			if (!key_file) {
-				fprintf(stderr, "unable to open authorized_keys_file: '%s'\n", config.authorized_keys_file);
+				ERROR("unable to open authorized_keys_file: '%s'\n", config.authorized_keys_file);
 				break;
 			}
 
@@ -251,7 +251,7 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 		ssh_message_free(ssh_message);
 
 		if (rc == SSH_ERROR) {
-			fprintf(stderr, "error sending message\n");
+			DEBUG("sending message failed\n");
 			ssh_key_free(key_server);
 			ssh_free(ssh_session);
 			ssh_disconnect(ssh_session);
@@ -261,14 +261,14 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 	} while (ssh_message && !is_authenticated);
 
 	if (!is_authenticated) {
-		fprintf(stderr, "error authenticating\n");
+		DEBUG("error authenticating\n");
 		ssh_key_free(key_server);
 		ssh_free(ssh_session);
 		ssh_disconnect(ssh_session);
 		return;
 	}
 
-	printf(":: got authenticated\n");
+	DEBUG("got authenticated\n");
 
 	do {
 		ssh_message = ssh_message_get(ssh_session);
@@ -286,7 +286,7 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 		ssh_message_free(ssh_message);
 
 		if (rc == SSH_ERROR) {
-			fprintf(stderr, "error sending message\n");
+			DEBUG("sending message failed\n");
 			ssh_free(ssh_session);
 			ssh_disconnect(ssh_session);
 			return;
@@ -295,13 +295,13 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 	} while (ssh_message && !ssh_channel);
 
 	if (!ssh_channel) {
-		fprintf(stderr, "error in channel\n");
+		DEBUG("error in channel");
 		ssh_free(ssh_session);
 		ssh_disconnect(ssh_session);
 		return;
 	}
 
-	printf(":: got channel\n");
+	DEBUG("got channel\n");
 
 	int is_netconf = 0;
 	do {
@@ -321,7 +321,7 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 		ssh_message_free(ssh_message);
 
 		if (rc == SSH_ERROR) {
-			fprintf(stderr, "error sending message\n");
+			DEBUG("sending message failed\n");
 			ssh_free(ssh_session);
 			ssh_disconnect(ssh_session);
 			return;
@@ -330,25 +330,25 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 	} while (ssh_message && !is_netconf);
 
 	if (!is_netconf) {
-		fprintf(stderr, "not in netconf subsystem\n");
+		DEBUG("not in netconf subsystem\n");
 		ssh_free(ssh_session);
 		ssh_disconnect(ssh_session);
 		return;
 	}
 
-	printf(":: got netconf\n");
+	DEBUG("got netconf\n");
 
-	printf("-- reading <hello>\n");
-	char *xml_message_in = NULL,
-		*xml_message_out = NULL;
+	char *xml_message_in = NULL;
+	char *xml_message_out = NULL;
 
+	DEBUG("reading <hello>\n");
 	rc = netconf_read(&ssh_channel, &xml_message_in, 1);
 	if (rc) goto shutdown;
 
 	rc = xml_analyze_message_hello(xml_message_in, &netconf_base);
 	if (rc) goto shutdown;
 
-	printf("-- sending <hello>\n");
+	DEBUG("sending <hello>\n");
 	rc = netconf_write(&ssh_channel, XML_NETCONF_HELLO , 1);
 	if (rc) goto shutdown;
 
@@ -360,7 +360,7 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 		xml_message_in = NULL;
 		xml_message_out = NULL;
 
-		printf("-- reading message\n");
+		DEBUG("reading message\n");
 
 		rc = netconf_read(&ssh_channel, &xml_message_in, 0);
 		if (rc) break;
@@ -369,12 +369,12 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 
 		rp = xml_handle_message_rpc(xml_message_in, &xml_message_out);
 
-		printf("-- sending message\n");
+		DEBUG("sending message\n");
 		rc = netconf_write(&ssh_channel, xml_message_out, 0);
 	}
 
 shutdown:
-	printf(":: session closed\n");
+	DEBUG("session closed\n");
 	free(read_buffer);
 	read_buffer = NULL;
 	read_buffer_len = 0;
@@ -399,29 +399,29 @@ ssh_netconf_init(void)
 
 	s.ssh_bind = ssh_bind_new();
 	if (!s.ssh_bind) {
-		fprintf(stderr, "ssh_netconf_init: not enough memory (ssh_bind_new)\n");
+		ERROR("not enough memory\n");
 		return -1;
 	}
 
 	/* generate host keys they do not exist */
 	if (access(config.host_rsa_key, F_OK) == -1) {
-		fprintf(stderr, "key doesn't exist: creating %s...\n", config.host_rsa_key);
+		LOG("key doesn't exist: creating %s...\n", config.host_rsa_key);
 		ssh_key host_rsa_key;
 		rc = ssh_pki_generate(SSH_KEYTYPE_RSA, 4096, &host_rsa_key);
 		if (rc == SSH_OK) {
 			rc = ssh_pki_export_privkey_file(host_rsa_key, "", NULL, NULL, config.host_rsa_key);
-			if (rc != SSH_OK) printf("unable to save key to file, do you have required permissions?\n");
+			if (rc != SSH_OK) ERROR("unable to save key to file\n");
 			free(host_rsa_key);
 		}
 	}
 
 	if (access(config.host_dsa_key, F_OK) == -1) {
-		fprintf(stderr, "key doesn't exist: creating %s...\n", config.host_dsa_key);
+		LOG("key doesn't exist: creating %s...\n", config.host_dsa_key);
 		ssh_key host_dsa_key;
 		rc = ssh_pki_generate(SSH_KEYTYPE_DSS, 4096, &host_dsa_key);
 		if (rc == SSH_OK) {
 			rc = ssh_pki_export_privkey_file(host_dsa_key, "", NULL, NULL, config.host_dsa_key);
-			if (rc != SSH_OK) printf("unable to save key to file, do you have required permissions?\n");
+			if (rc != SSH_OK) ERROR("unable to save key to file\n");
 			free(host_dsa_key);
 		}
 	}
@@ -436,7 +436,7 @@ ssh_netconf_init(void)
 
 	rc = ssh_bind_listen(s.ssh_bind);
 	if (rc < 0) {
-		fprintf(stderr, "ssh_netconf_init: error listening on socket (ssh_bind_listen: %s)\n", ssh_get_error(s.ssh_bind));
+		ERROR("error listening on socket '%s'\n", ssh_get_error(s.ssh_bind));
 		ssh_bind_free(s.ssh_bind);
 		ssh_finalize();
 		return -1;
@@ -444,7 +444,7 @@ ssh_netconf_init(void)
 
 	rc = ssh_bind_get_fd(s.ssh_bind);
 	if (!rc) {
-		fprintf(stderr, "ssh_netconf_init: error listening on socket (ssh_bind_get_fd: %s)\n", ssh_get_error(s.ssh_bind));
+		ERROR("error listening on socket '%s'\n", ssh_get_error(s.ssh_bind));
 		ssh_bind_free(s.ssh_bind);
 		ssh_finalize();
 		return -1;

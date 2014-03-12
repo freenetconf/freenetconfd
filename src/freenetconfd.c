@@ -30,22 +30,23 @@ main(int argc, char **argv)
 
 	rc = config_load();
 	if (rc) {
-		printf("configuration loading failed\n");
-		return -1;
+		ERROR("configuration loading failed\n");
+		exit(EXIT_FAILURE);
 	}
 
 	rc = uloop_init();
 	if (rc) {
-		printf("uloop init failed\n");
-		return -1;
+		ERROR("uloop init failed\n");
+		exit(EXIT_FAILURE);
 	}
 
 	rc = ssh_netconf_init();
 	if (rc) {
-		printf("ssh init failed\n");
-		return -1;
+		ERROR("ssh init failed\n");
+		exit(EXIT_FAILURE);
 	}
 
+	/* main loop */
 	uloop_run();
 
 	ssh_netconf_exit();
