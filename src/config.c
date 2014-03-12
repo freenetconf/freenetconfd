@@ -57,22 +57,19 @@ const struct uci_blob_param_list config_attr_list = {
 };
 
 /*
- * config_load - load uci config file
+ * config_load() - load uci config file
  *
- * Load and parse uci config file. Looks for file in /etc/config/freentconfd
- * first. If found, parse configs to internal structure defined in config.h.
+ * Load and parse uci config file. If config file is found, parse configs to
+ * internal structure defined in config.h.
  */
-int config_load()
+int config_load(void)
 {
 	struct uci_context *uci = uci_alloc_context();
 	struct uci_package *conf = NULL;
 	struct blob_attr *tb[__OPTIONS_COUNT], *c;
 	static struct blob_buf buf;
-	int rc = -1;
 
-	if (uci_load(uci, "freenetconfd", &conf)
-	    && uci_load(uci, "./config/freenetconfd", &conf))
-	{
+	if (uci_load(uci, "freenetconfd", &conf)) {
 		uci_free_context(uci);
 		return -1;
 	}
@@ -87,7 +84,13 @@ int config_load()
 
 	blobmsg_parse(config_policy, __OPTIONS_COUNT, tb, blob_data(buf.head), blob_len(buf.head));
 
-	/* optional configs */
+	/* defaults */
+	config.addr = NULL;
+	config.port = NULL;
+	config.username = NULL;
+	config.password = NULL;
+	config.host_dsa_key = NULL;
+	config.host_rsa_key = NULL;
 	config.authorized_keys_file = NULL;
 	config.ssh_timeout_socket = 3;
 	config.ssh_timeout_read = 1000;
@@ -95,32 +98,26 @@ int config_load()
 	config.ssh_pcap_file = NULL;
 	config.log_level = 0;
 
-	if (!(c = tb[ADDR])) goto exit;
-	rc = asprintf(&config.addr, "%s", blobmsg_get_string(c));
-	if (rc < 0) goto exit;
+	if ((c = tb[ADDR]))
+		config.addr = strdup(blobmsg_get_string(c));
 
-	if (!(c = tb[PORT])) goto exit;
-	rc = asprintf(&config.port, "%s", blobmsg_get_string(c));
-	if (rc < 0) goto exit;
+	if ((c = tb[PORT]))
+		config.port = strdup(blobmsg_get_string(c));
 
-	if (!(c = tb[USERNAME])) goto exit;
-	rc = asprintf(&config.username, "%s", blobmsg_get_string(c));
-	if (rc < 0) goto exit;
+	if ((c = tb[USERNAME]))
+		config.username = strdup(blobmsg_get_string(c));
 
-	if (!(c = tb[PASSWORD])) goto exit;
-	rc = asprintf(&config.password, "%s", blobmsg_get_string(c));
-	if (rc < 0) goto exit;
+	if ((c = tb[PASSWORD]))
+		config.password = strdup(blobmsg_get_string(c));
 
-	if (!(c = tb[HOST_DSA_KEY])) goto exit;
-	rc = asprintf(&config.host_dsa_key, "%s", blobmsg_get_string(c));
-	if (rc < 0) goto exit;
+	if ((c = tb[HOST_DSA_KEY]))
+		config.host_dsa_key = strdup(blobmsg_get_string(c));
 
-	if (!(c = tb[HOST_RSA_KEY])) goto exit;
-	rc = asprintf(&config.host_rsa_key, "%s", blobmsg_get_string(c));
-	if (rc < 0) goto exit;
+	if ((c = tb[HOST_RSA_KEY]))
+		config.host_rsa_key = strdup(blobmsg_get_string(c));
 
 	if ((c = tb[AUTHORIZED_KEYS_FILE]))
-	rc = asprintf(&config.authorized_keys_file, "%s", blobmsg_get_string(c));
+		config.authorized_keys_file = strdup(blobmsg_get_string(c));
 
 	if ((c = tb[SSH_TIMEOUT_SOCKET]))
 		config.ssh_timeout_socket = blobmsg_get_u32(c);
@@ -131,23 +128,23 @@ int config_load()
 	if ((c = tb[SSH_PCAP_ENABLE]))
 		config.ssh_pcap_enable = blobmsg_get_bool(c);
 
-	if (config.ssh_pcap_enable && !(c = tb[SSH_PCAP_FILE])) goto exit;
-	rc = asprintf(&config.ssh_pcap_file, "%s", blobmsg_get_string(c));
+	if (config.ssh_pcap_enable
+	    && (c = tb[SSH_PCAP_FILE])) {
+		free(config.ssh_pcap_file);
+		config.ssh_pcap_file = strdup(blobmsg_get_string(c));
+	}
 
-	if((c = tb[LOG_LEVEL]))
+	if ((c = tb[LOG_LEVEL]))
 		config.log_level = blobmsg_get_u32(c);
 
-	rc = 0;
-
-exit:
 	blob_buf_free(&buf);
 	uci_unload(uci, conf);
 	uci_free_context(uci);
 
-	return rc;
+	return 0;
 }
 
-void config_exit()
+void config_exit(void)
 {
 	free(config.addr);
 	free(config.port);

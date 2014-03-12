@@ -16,8 +16,8 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
-int config_load();
-void config_exit();
+int config_load(void);
+void config_exit(void);
 
 struct config_t {
 	char *addr;
