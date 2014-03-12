@@ -12,6 +12,6 @@ config freenetconfd
 	option authorized_keys_file '/etc/netconf/authorized_keys'
 	option log_level 0
 	option ssh_timeout_socket 3
-	option ssh_timeout_read 1000
+	option ssh_timeout_read 1
 	option ssh_pcap_enable 0
 	option ssh_pcap_file "/var/log/ssh.pcap"

@@ -123,7 +123,7 @@ int config_load(void)
 		config.ssh_timeout_socket = blobmsg_get_u32(c);
 
 	if ((c = tb[SSH_TIMEOUT_READ]))
-		config.ssh_timeout_read = blobmsg_get_u32(c);
+		config.ssh_timeout_read = blobmsg_get_u32(c) * 1000;
 
 	if ((c = tb[SSH_PCAP_ENABLE]))
 		config.ssh_pcap_enable = blobmsg_get_bool(c);
