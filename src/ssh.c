@@ -43,6 +43,40 @@ struct ssh {
 static struct ssh s;
 static int netconf_base = 1;
 
+static int
+ssh_check_key(ssh_key key_client)
+{
+	FILE *fd = fopen(config.authorized_keys_file, "r");
+	if (!fd) {
+		ERROR("unable to open authorized_keys_file: '%s'\n", config.authorized_keys_file);
+		return 1;
+	}
+
+	char *line = NULL;
+	size_t line_len = 0;
+	int is_found = 0;
+	int rc;
+
+	while (!is_found && getline(&line, &line_len, fd) != -1) {
+		char type[32], key[2048];
+		sscanf(line, "%s %s ", type, key);
+
+		ssh_key key_server = NULL;
+		rc = ssh_pki_import_pubkey_base64(key, ssh_key_type_from_name(type), &key_server);
+		if (rc != SSH_OK) continue;
+
+		rc = ssh_key_cmp(key_client, key_server, SSH_KEY_CMP_PUBLIC);
+		if (!rc) is_found = 1;
+
+		ssh_key_free(key_server);
+	}
+
+	free(line);
+	fclose(fd);
+
+	return !is_found;
+}
+
 /*
  * netconf_read() - read and return netconf rpc messages
  *
@@ -191,68 +225,51 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 		return;
 	}
 
-	ssh_set_auth_methods(ssh_session, SSH_AUTH_METHOD_PUBLICKEY | SSH_AUTH_METHOD_PASSWORD);
+	int auth_method = SSH_AUTH_METHOD_UNKNOWN;
+ 
+	if (config.username && config.password)
+		auth_method |= SSH_AUTH_METHOD_PASSWORD;
+
+	if (config.authorized_keys_file)
+		auth_method |= SSH_AUTH_METHOD_PUBLICKEY;
+
+	ssh_set_auth_methods(ssh_session, auth_method);
 
 	int is_authenticated = 0;
-	ssh_key key_client = NULL,
-	key_server = NULL;
 
 	do {
 		ssh_message = ssh_message_get(ssh_session);
-
 		if (!ssh_message) break;
 
-		if (ssh_message_subtype(ssh_message) == SSH_AUTH_METHOD_PUBLICKEY) {
+		rc = SSH_ERROR;
+
+		if (config.authorized_keys_file
+		    && ssh_message_subtype(ssh_message) == SSH_AUTH_METHOD_PUBLICKEY)
+		{
+			ssh_key key_client = NULL;
 			key_client = ssh_message_auth_pubkey(ssh_message);
-			if (!key_client) break;
+			if (!key_client) goto is_authenticated_loop_cleanup;
 
-			FILE *key_file;
-			char *line = NULL;
-			size_t len = 0;
-			ssize_t read;
-			enum ssh_keytypes_e key_type;
-
-			key_file = fopen(config.authorized_keys_file, "r");
-			if (!key_file) {
-				ERROR("unable to open authorized_keys_file: '%s'\n", config.authorized_keys_file);
-				break;
-			}
-
-			while ((read = getline(&line, &len, key_file )) != -1) {
-				char type[len];
-				char key[len];
-				sscanf(line, "%s %s", type, key);
-				key_type = ssh_key_type_from_name(type);
-				rc = ssh_pki_import_pubkey_base64(key, key_type, &key_server);
-				if (rc != SSH_OK) continue;
-				rc = ssh_key_cmp(key_client, key_server, SSH_KEY_CMP_PUBLIC);
-				ssh_key_free(key_server);
-				if (!rc) {
-					is_authenticated = 1;
-					break;
-				}
-			}
-
-			free(line);
-			fclose(key_file);
-
-			if (!is_authenticated) break;
-
-			rc = ssh_message_auth_reply_success(ssh_message, 0);
-		} else if (ssh_message_subtype(ssh_message) == SSH_AUTH_METHOD_PASSWORD
-			&& !strcmp(ssh_message_auth_user(ssh_message), config.username)
-			&& !strcmp(ssh_message_auth_password(ssh_message), config.password))
+			if (ssh_check_key(key_client) == 0) {
+				is_authenticated = 1;
+				rc = ssh_message_auth_reply_success(ssh_message, 0);
+			} else
+				rc = ssh_message_reply_default(ssh_message);
+		} else if (config.username && config.password
+			   && ssh_message_subtype(ssh_message) == SSH_AUTH_METHOD_PASSWORD
+			   && !strcmp(ssh_message_auth_user(ssh_message), config.username)
+			   && !strcmp(ssh_message_auth_password(ssh_message), config.password))
 		{
 			is_authenticated = 1;
 			rc = ssh_message_auth_reply_success(ssh_message, 0);
 		} else
 			rc = ssh_message_reply_default(ssh_message);
 
+is_authenticated_loop_cleanup:
 		ssh_message_free(ssh_message);
 
 		if (rc == SSH_ERROR) {
 			DEBUG("sending message failed\n");
-			ssh_key_free(key_server);
 			ssh_free(ssh_session);
 			ssh_disconnect(ssh_session);
 			return;
@@ -262,7 +279,6 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 
 	if (!is_authenticated) {
 		DEBUG("error authenticating\n");
-		ssh_key_free(key_server);
 		ssh_free(ssh_session);
 		ssh_disconnect(ssh_session);
 		return;
