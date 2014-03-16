@@ -163,7 +163,7 @@ exit:
 static int
 xml_handle_get(char *message_id, node_t *xml_in, char **xml_out)
 {
-	return 0;
+	return xml_handle_get_config(message_id, xml_in, xml_out);
 }
 
 /* <get-config><source><running/></source><filter></filter></get-config> */
@@ -268,12 +268,38 @@ xml_handle_delete_config(char *message_id, node_t *xml_in, char **xml_out)
 static int
 xml_handle_lock(char *message_id, node_t *xml_in, char **xml_out)
 {
+	node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
+	if (!doc_out) goto exit;
+
+	node_t *root = roxml_get_chld(doc_out, NULL, 0);
+	if (!root) goto exit;
+
+	node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+	if (!attr) goto exit;
+
+	roxml_commit_changes(doc_out, NULL, xml_out, 0);
+
+exit:
+	roxml_close(doc_out);
 	return 0;
 }
 
 static int
 xml_handle_unlock(char *message_id, node_t *xml_in, char **xml_out)
 {
+	node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
+	if (!doc_out) goto exit;
+
+	node_t *root = roxml_get_chld(doc_out, NULL, 0);
+	if (!root) goto exit;
+
+	node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+	if (!attr) goto exit;
+
+	roxml_commit_changes(doc_out, NULL, xml_out, 0);
+
+exit:
+	roxml_close(doc_out);
 	return 0;
 }
 
@@ -329,5 +355,18 @@ static int xml_handle_cancel_commit(char *message_id, node_t *xml_in, char **xml
 
 static int xml_handle_discard_changes(char *message_id, node_t *xml_in, char **xml_out)
 {
+	node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
+	if (!doc_out) goto exit;
+
+	node_t *root = roxml_get_chld(doc_out, NULL, 0);
+	if (!root) goto exit;
+
+	node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+	if (!attr) goto exit;
+
+	roxml_commit_changes(doc_out, NULL, xml_out, 0);
+
+exit:
+	roxml_close(doc_out);
 	return 0;
 }

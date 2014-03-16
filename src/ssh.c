@@ -74,7 +74,7 @@ netconf_read(ssh_channel *ssh_channel, char **buffer, int hello_message)
 
 		bytes_read = ssh_channel_read_timeout(*ssh_channel, read_buffer + read_buffer_len + read, CHUNK_LEN, 0, config.ssh_timeout_read);
 
-		if (bytes_read < 0) {
+		if (bytes_read < 0 || bytes_read == 0) {
 			fprintf(stderr, "ssh_channel_read: %d\n", (int)bytes_read);
 			goto exit;
 		}
@@ -119,6 +119,7 @@ netconf_write(ssh_channel *ssh_channel, const char *buf, int hello_message)
 	int msg_len = 0;
 	char *msg = NULL;
 
+	printf("\n%s\n", buf);
 	/* base 1.1 */
 	if (netconf_base && !hello_message) {
 		msg_len = asprintf(&msg, "\n#%zu\n%s%s", strlen(buf), buf, XML_NETCONF_BASE_1_1_END);
