@@ -413,12 +413,6 @@ ssh_netconf_init(void)
 {
 	int rc = 0;
 
-	s.ssh_bind = ssh_bind_new();
-	if (!s.ssh_bind) {
-		ERROR("not enough memory\n");
-		return -1;
-	}
-
 	/* generate host keys they do not exist */
 	if (access(config.host_rsa_key, F_OK) == -1) {
 		LOG("key doesn't exist: creating %s...\n", config.host_rsa_key);
@@ -440,6 +434,12 @@ ssh_netconf_init(void)
 			if (rc != SSH_OK) ERROR("unable to save key to file\n");
 			free(host_dsa_key);
 		}
+	}
+
+	s.ssh_bind = ssh_bind_new();
+	if (!s.ssh_bind) {
+		ERROR("not enough memory\n");
+		return -1;
 	}
 
 	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_BINDADDR, config.addr);
