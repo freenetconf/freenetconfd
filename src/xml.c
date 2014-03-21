@@ -16,8 +16,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <roxml.h>
-#include "messages.h"
+
 #include "xml.h"
+#include "freenetconfd.h"
+#include "messages.h"
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
@@ -138,7 +140,7 @@ int xml_handle_message_rpc(char *xml_in, char **xml_out)
 
 	operation_name = roxml_get_name(operation, NULL, 0);
 
-	printf(":: got rpc %s\n", operation_name);
+	DEBUG("received rpc '%s'\n", operation_name);
 
 	const struct rpc_method *method = NULL;
 	for (int i = 0; i < ARRAY_SIZE(rpc_methods); i++) {
