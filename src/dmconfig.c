@@ -1,4 +1,5 @@
 #include "dmconfig.h"
+#include <inttypes.h>
 
 /*
  * dm_init() - init libev and dmconfig parts
@@ -159,36 +160,39 @@ exit:
 }
 
 /*
- * dm_dump() - dump (part of) config
+ * dm_get_instance() - get instance from mand
  *
- * @char*:	NULL or path (for example "system.ntp.1")
+ * @char*:	NULL or path (for example "system.ntp")
+ * @char*:	key we are searching for (for example "name")
+ * @char*:	value we are searching for (for example "Server1")
  *
- * NULL as path equals to "". Returns NULL on error or value (char*) on
- * success. Must be freed.
+ * Returns instace if found.
  */
-char* dm_dump(char *path)
+uint16_t dm_get_instance(char *path, char *key, char *value)
 {
 	DMCONTEXT ctx;
 	DM_AVPGRP *grp = NULL;
 	struct event_base *base;
-	char *rp = NULL;
 	int rc = -1;
+	uint16_t instance = 0;
 
 	if(!path) path = "";
 
 	rc = dm_init(&base, &ctx, &grp);
 	if (rc) goto exit;
 
-	rc = dm_send_cmd_dump(&ctx, path, &rp);
+	dm_grp_set_string(&grp, key, value);
+	rc = dm_send_find_instance(&ctx, path, grp, &instance);
+
 	if (rc) {
-		fprintf(stderr, "dmconfig: couldn't dump config\n");
+		fprintf(stderr, "dmconfig: couldn't get instance\n");
 		goto exit;
 	}
 
 exit:
 	dm_shutdown(&base, &ctx, &grp);
 
-	return rp;
+	return instance;
 }
 
 /*
@@ -206,10 +210,13 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 	if (!n || !root) return -1;
 
 	static char *path = NULL;
+	static uint16_t instance = 0;
 
 	char *name = roxml_get_name(n, NULL, 0);
 
-	if (name) {
+	/* if node exists and it's not a key node (lists) */
+	/* FIXME: get key values from YANG files? */
+	if (name && strcmp(name, "name") && strcmp(name, "ip")) {
 
 		int path_len = path ? strlen(path) : 0;
 		int name_len = strlen(name);
@@ -224,6 +231,7 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 		strncat(path, ".", 1);
 	}
 
+	/* use attribute instance if we saved  */
 	node_t *ninstance = roxml_get_attr(n, "instance", 0);
 	if (ninstance) {
 		char *instance = roxml_get_content(ninstance, NULL, 0, NULL);
@@ -249,8 +257,34 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 		/* remove last '.' */
 		path[strlen(path) -1] = 0;
 
-		dm_set_parameter(path, val);
-		printf("parameter:%s=\"%s\"\n", path, val);
+		/* save key as attribue on parent */
+		if (name && (!strcmp(name,"name") || !strcmp(name, "ip"))) {
+			instance = dm_get_instance(path, name, val);
+			if (!instance) {
+				fprintf(stderr, "dm_set_parameters_from_xml: unable to get instance, mand bug?\n");
+				/* if this happens it should be mand bug or wrong parsing
+ 				 * try to workaround */
+				instance = 1;
+			}
+
+			/* max integer length on 64bit system */
+			char cinstance[21];
+			snprintf(cinstance, 21, "%d", instance);
+
+			node_t *parent = roxml_get_parent(n);
+			if(!parent) {
+				fprintf(stderr, "dm_set_parameters_from_xml: unable to get parent node\n");
+				return -1;
+			}
+			roxml_add_node(parent, 0, ROXML_ATTR_NODE, "instance", cinstance);
+		}
+
+		/* remove 'else' for ability of changing 'key' value */
+		/* I don't see that specified in YANG/NCS */
+		else {
+			dm_set_parameter(path, val);
+			printf("parameter:%s=\"%s\"\n", path, val);
+		}
 
 		free(path);
 		path = NULL;
@@ -258,7 +292,7 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 		roxml_del_node(n);
 		return dm_set_parameters_from_xml(root, root);
 	}
-	/* if no values found (all processed) remove this child */
+	/* if no children anymore (all processed) remove this child */
 	node_t *child = roxml_get_chld(n, NULL, 0);
 	if (!child) {
 
@@ -274,4 +308,11 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 	}
 	/* process next child */
 	return dm_set_parameters_from_xml(root, child);
+}
+
+char *dm_get_xml_config(char *filter)
+{
+	char *rc = NULL;
+
+	return rc;
 }

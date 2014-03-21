@@ -186,9 +186,6 @@ xml_handle_get_config(char *message_id, node_t *xml_in, char **xml_out)
  	 * example */
 	if (ns) filter = NULL;
 
-	config = dm_dump(filter);
-	if (!config) goto exit;
-
 	/* construct message with mand returned data */
 	/* NOTE: libdmconfig always returns xml prolog and adds 'data' node but
  	 * only if filter specified, roxml is unable to remove prolog in first case*/

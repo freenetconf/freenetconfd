@@ -23,6 +23,7 @@ void dm_shutdown(struct event_base **base, DMCONTEXT *ctx, DM_AVPGRP **grp);
 char* dm_get_parameter(char *key);
 int dm_set_parameter(char *key, char *value);
 int dm_commit();
-char* dm_dump(char *path);
+uint16_t dm_get_instance(char *path, char *key, char *value);
 int dm_set_parameters_from_xml(node_t *root, node_t *n);
+char *dm_get_xml_config(char *filter);
 #endif /* __CONFIG_H__ */
