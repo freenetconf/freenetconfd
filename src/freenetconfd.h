@@ -32,4 +32,17 @@
 		fprintf(stderr, "freenetconfd: "fmt, ## __VA_ARGS__); \
 	} while (0)
 
+#ifndef typeof
+#define typeof __typeof
+#endif
+
+#ifndef container_of
+#define container_of(ptr, type, member) ( \
+	(type *)( (char *)ptr - offsetof(type,member) ))
+#endif
+
+#ifndef __unused
+#define __unused __attribute__((unused))
+#endif
+
 #endif /* __FREENETCONFD_H__ */
