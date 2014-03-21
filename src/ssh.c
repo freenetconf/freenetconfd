@@ -115,7 +115,7 @@ netconf_read(ssh_channel *ssh_channel, char **buffer, int hello_message)
 
 		bytes_read = ssh_channel_read_timeout(*ssh_channel, read_buffer + read_buffer_len + read, CHUNK_LEN, 0, config.ssh_timeout_read);
 
-		if (bytes_read < 0) {
+		if (bytes_read <= 0) {
 			DEBUG("ssh_channel_read: %d\n", (int)bytes_read);
 			goto exit;
 		}
