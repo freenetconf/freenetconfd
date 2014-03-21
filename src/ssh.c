@@ -13,6 +13,7 @@
  * along with freenetconfd. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -22,6 +23,7 @@
 #include <libssh/server.h>
 
 #include <libubox/uloop.h>
+#include <libubox/usock.h>
 
 #include "xml.h"
 #include "freenetconfd.h"
@@ -30,6 +32,11 @@
 #include "config.h"
 
 #define CHUNK_LEN 256
+
+static void ssh_handle_connection(struct uloop_fd *u_fd, __unused unsigned int events);
+static void ssh_del_client(struct uloop_process *uproc, int ret);
+
+static struct uloop_fd ssh_srv = { .cb = ssh_handle_connection };
 
 static char *read_buffer = NULL;
 static int read_buffer_len = 0;
@@ -187,7 +194,7 @@ exit:
  * ssh_cb() - ssh uloop callback
  *
  * @uloop_fd*:	uloop socket
- * @int:		uloop flags (unused)
+ * @int:	uloop flags (unused)
  *
  * Called on every new connection. Creates new ssh session and processes
  * messages if everything is valid.
@@ -195,36 +202,30 @@ exit:
 static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 {
 	ssh_session ssh_session;
-	ssh_message ssh_message;
-	ssh_channel ssh_channel = 0;
-	static int session_id = 0;
-
+	ssh_message ssh_message = NULL;
+	ssh_channel ssh_channel = NULL;
 	int rc;
 
+	DEBUG("initializing session\n");
 	ssh_session = ssh_new();
-	if (!ssh_session) {
-		ERROR("not enough memory\n");
-		return;
-	}
+	if (!ssh_session) exit(EXIT_FAILURE);
+
+	/* TODO: review this again */
+	static int session_id = 0;
 	session_id++;
 
+	/* configure timeout */
 	ssh_options_set(ssh_session, SSH_OPTIONS_TIMEOUT, &config.ssh_timeout_socket);
 
-	rc = ssh_bind_accept(s.ssh_bind, ssh_session);
-	if (rc != SSH_OK) {
-		ERROR("error accepting a connection: '%s'\n", ssh_get_error(s.ssh_bind));
-		ssh_free(ssh_session);
-		return;
-	}
+	DEBUG("accepting connection\n");
+	rc = ssh_bind_accept_fd(s.ssh_bind, ssh_session, ssh_bind_get_fd(s.ssh_bind));
+	if (rc != SSH_OK) goto free_ssh;
 
+	DEBUG("exchanging keys\n");
 	rc = ssh_handle_key_exchange(ssh_session);
-	if (rc != SSH_OK) {
-		ERROR("error exchanging keys: '%s'\n", ssh_get_error(s.ssh_bind));
-		ssh_disconnect(ssh_session);
-		ssh_free(ssh_session);
-		return;
-	}
+	if (rc != SSH_OK) goto free_ssh;
 
+	/* configure authentication methods */
 	int auth_method = SSH_AUTH_METHOD_UNKNOWN;
  
 	if (config.username && config.password)
@@ -235,11 +236,11 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 
 	ssh_set_auth_methods(ssh_session, auth_method);
 
+	DEBUG("trying to authenticate\n");
 	int is_authenticated = 0;
-
 	do {
 		ssh_message = ssh_message_get(ssh_session);
-		if (!ssh_message) break;
+		if (!ssh_message) goto free_ssh;
 
 		rc = SSH_ERROR;
 
@@ -248,7 +249,7 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 		{
 			ssh_key key_client = NULL;
 			key_client = ssh_message_auth_pubkey(ssh_message);
-			if (!key_client) goto is_authenticated_loop_cleanup;
+			if (!key_client) goto free_ssh;
 
 			if (ssh_check_key(key_client) == 0) {
 				is_authenticated = 1;
@@ -265,142 +266,156 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 		} else
 			rc = ssh_message_reply_default(ssh_message);
 
-is_authenticated_loop_cleanup:
 		ssh_message_free(ssh_message);
+		ssh_message = NULL;
 
-		if (rc == SSH_ERROR) {
-			DEBUG("sending message failed\n");
-			ssh_free(ssh_session);
-			ssh_disconnect(ssh_session);
-			return;
-		}
+		if (rc == SSH_ERROR) goto free_ssh;
+	} while (!is_authenticated);
 
-	} while (ssh_message && !is_authenticated);
+	if (!is_authenticated) goto free_ssh;
+	DEBUG("authentication completed\n");
 
-	if (!is_authenticated) {
-		DEBUG("error authenticating\n");
-		ssh_free(ssh_session);
-		ssh_disconnect(ssh_session);
-		return;
-	}
-
-	DEBUG("got authenticated\n");
-
+	DEBUG("trying to setup channel\n");
 	do {
 		ssh_message = ssh_message_get(ssh_session);
+		if (!ssh_message) goto free_ssh;
 
-		if (!ssh_message) break;
-
-		if (ssh_message_subtype(ssh_message) == SSH_CHANNEL_SESSION) {
+		if (ssh_message_subtype(ssh_message) == SSH_CHANNEL_SESSION)
 			ssh_channel = ssh_message_channel_request_open_reply_accept(ssh_message);
-		}
 
 		if (!ssh_channel) {
-			rc = ssh_message_reply_default(ssh_message);
+			/* no reason to check error message here */
+			ssh_message_reply_default(ssh_message);
+			goto free_ssh;
 		}
 
 		ssh_message_free(ssh_message);
+		ssh_message = NULL;
+	} while (!ssh_channel);
 
-		if (rc == SSH_ERROR) {
-			DEBUG("sending message failed\n");
-			ssh_free(ssh_session);
-			ssh_disconnect(ssh_session);
-			return;
-		}
+	if (!ssh_channel) goto free_ssh;
+	DEBUG("channel setup completed\n");
 
-	} while (ssh_message && !ssh_channel);
-
-	if (!ssh_channel) {
-		DEBUG("error in channel");
-		ssh_free(ssh_session);
-		ssh_disconnect(ssh_session);
-		return;
-	}
-
-	DEBUG("got channel\n");
-
+	DEBUG("requesting netconf subsystem\n");
 	int is_netconf = 0;
 	do {
 		ssh_message = ssh_message_get(ssh_session);
-
-		if (!ssh_message) break;
+		if (!ssh_message) goto free_ssh;
 
 		if ((ssh_message_subtype(ssh_message) == SSH_CHANNEL_REQUEST_SUBSYSTEM)
 			&& !strcmp(ssh_message_channel_request_subsystem(ssh_message), "netconf"))
 		{
 			is_netconf = 1;
 			rc = ssh_message_channel_request_reply_success(ssh_message);
-		} else {
+		} else
 			rc = ssh_message_reply_default(ssh_message);
-		}
 
 		ssh_message_free(ssh_message);
+		ssh_message = NULL;
 
-		if (rc == SSH_ERROR) {
-			DEBUG("sending message failed\n");
-			ssh_free(ssh_session);
-			ssh_disconnect(ssh_session);
-			return;
-		}
+		if (rc == SSH_ERROR) goto free_ssh;
+	} while (!is_netconf);
 
-	} while (ssh_message && !is_netconf);
+	if (!is_netconf) goto free_ssh;
+	DEBUG("netconf subsystem received\n");
 
-	if (!is_netconf) {
-		DEBUG("not in netconf subsystem\n");
-		ssh_free(ssh_session);
-		ssh_disconnect(ssh_session);
-		return;
-	}
-
-	DEBUG("got netconf\n");
-
-	char *xml_message_in = NULL;
-	char *xml_message_out = NULL;
+	char *xml_msg_in = NULL;
+	char *xml_msg_out = NULL;
 
 	DEBUG("reading <hello>\n");
-	rc = netconf_read(&ssh_channel, &xml_message_in, 1);
-	if (rc) goto shutdown;
+	rc = netconf_read(&ssh_channel, &xml_msg_in, 1);
+	if (rc) goto free_xml;
 
-	rc = xml_analyze_message_hello(xml_message_in, &netconf_base);
-	if (rc) goto shutdown;
+	rc = xml_analyze_message_hello(xml_msg_in, &netconf_base);
+	if (rc) goto free_xml;
 
 	DEBUG("sending <hello>\n");
 	rc = netconf_write(&ssh_channel, XML_NETCONF_HELLO , 1);
-	if (rc) goto shutdown;
+	if (rc) goto free_xml;
 
 	int rp = 0;
-
 	while(!rp && !rc) {
-		free(xml_message_in);
-		free(xml_message_out);
-		xml_message_in = NULL;
-		xml_message_out = NULL;
+		free(xml_msg_in);
+		free(xml_msg_out);
+		xml_msg_in = NULL;
+		xml_msg_out = NULL;
 
 		DEBUG("reading message\n");
-
-		rc = netconf_read(&ssh_channel, &xml_message_in, 0);
+		rc = netconf_read(&ssh_channel, &xml_msg_in, 0);
 		if (rc) break;
 
-		printf("'%s'\n",xml_message_in);
+		printf("'%s'\n",xml_msg_in);
 
-		rp = xml_handle_message_rpc(xml_message_in, &xml_message_out);
+		rp = xml_handle_message_rpc(xml_msg_in, &xml_msg_out);
 
 		DEBUG("sending message\n");
-		rc = netconf_write(&ssh_channel, xml_message_out, 0);
+		rc = netconf_write(&ssh_channel, xml_msg_out, 0);
 	}
 
-shutdown:
-	DEBUG("session closed\n");
+free_xml:
 	free(read_buffer);
 	read_buffer = NULL;
 	read_buffer_len = 0;
-	free(xml_message_in);
-	free(xml_message_out);
-	ssh_channel_free(ssh_channel);
-	ssh_free(ssh_session);
-	ssh_disconnect(ssh_session);
+	free(xml_msg_in);
+	free(xml_msg_out);
 
-	return;
+free_ssh:
+	if (ssh_message) ssh_message_free(ssh_message);
+	ssh_disconnect(ssh_session);
+	if (ssh_session) ssh_free(ssh_session);
+
+	DEBUG("session closed\n");
+	exit(EXIT_SUCCESS);
+}
+
+static void
+ssh_handle_connection(struct uloop_fd *u_fd, __unused unsigned int events)
+{
+	int client_fd;
+	while ((client_fd = accept(u_fd->fd, NULL, NULL)) >= 0 || errno != EWOULDBLOCK) {
+		if (client_fd < 0)
+			continue;
+
+		LOG("received incoming connection\n");
+
+		struct uloop_process *uproc = calloc(1, sizeof(*uproc));
+		if (!uproc || (uproc->pid = fork()) == -1) {
+			free(uproc);
+			close(client_fd);
+		}
+
+		if (uproc->pid != 0) { /* parent */
+			/* register an event handler for when the child terminates */
+			uproc->cb = ssh_del_client;
+			uloop_process_add(uproc);
+			close(client_fd);
+		} else { /* child */
+			s.ssh_bind = ssh_bind_new();
+			if (!s.ssh_bind) {
+				ERROR("not enough memory\n");
+				return;
+			}
+
+			ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_LOG_VERBOSITY, &config.log_level);
+			ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_RSAKEY, config.host_rsa_key);
+			ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_DSAKEY, config.host_dsa_key);
+
+			ssh_bind_set_blocking(s.ssh_bind, 1);
+			ssh_bind_set_fd(s.ssh_bind, client_fd);
+
+			s.ssh_fd.cb = ssh_cb;
+			s.ssh_fd.fd = client_fd;
+
+			uloop_fd_add(&s.ssh_fd, ULOOP_READ | ULOOP_WRITE | ULOOP_EDGE_TRIGGER);
+		}
+	}
+}
+
+static void
+ssh_del_client(struct uloop_process *uproc, int ret)
+{
+	free(uproc);
+	LOG("child processing ssh request has died\n");
 }
 
 /*
@@ -436,40 +451,14 @@ ssh_netconf_init(void)
 		}
 	}
 
-	s.ssh_bind = ssh_bind_new();
-	if (!s.ssh_bind) {
-		ERROR("not enough memory\n");
+	ssh_srv.fd = usock(USOCK_TCP | USOCK_SERVER | USOCK_NONBLOCK, config.addr, config.port);
+	if (ssh_srv.fd < 0) {
+		ERROR("Unable to bind socket: %s", strerror(errno));
 		return -1;
 	}
 
-	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_BINDADDR, config.addr);
-	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_BINDPORT_STR, config.port);
-	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_LOG_VERBOSITY, &config.log_level);
-	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_RSAKEY, config.host_rsa_key);
-	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_DSAKEY, config.host_dsa_key);
+	uloop_fd_add(&ssh_srv, ULOOP_READ | ULOOP_EDGE_TRIGGER);
 
-	ssh_bind_set_blocking(s.ssh_bind, 0);
-
-	rc = ssh_bind_listen(s.ssh_bind);
-	if (rc < 0) {
-		ERROR("error listening on socket '%s'\n", ssh_get_error(s.ssh_bind));
-		ssh_bind_free(s.ssh_bind);
-		ssh_finalize();
-		return -1;
-	}
-
-	rc = ssh_bind_get_fd(s.ssh_bind);
-	if (!rc) {
-		ERROR("error listening on socket '%s'\n", ssh_get_error(s.ssh_bind));
-		ssh_bind_free(s.ssh_bind);
-		ssh_finalize();
-		return -1;
-	}
-
-	s.ssh_fd.cb = ssh_cb;
-	s.ssh_fd.fd = ssh_bind_get_fd(s.ssh_bind);
-
-	uloop_fd_add(&s.ssh_fd, ULOOP_READ | ULOOP_EDGE_TRIGGER);
 	return 0;
 }
 
