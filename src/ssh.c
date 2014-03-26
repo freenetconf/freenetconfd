@@ -208,7 +208,10 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 
 	DEBUG("initializing session\n");
 	ssh_session = ssh_new();
-	if (!ssh_session) exit(EXIT_FAILURE);
+	if (!ssh_session) {
+		uloop_end();
+		return;
+	}
 
 	/* TODO: review this again */
 	static int session_id = 0;
@@ -227,7 +230,7 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 
 	/* configure authentication methods */
 	int auth_method = SSH_AUTH_METHOD_UNKNOWN;
- 
+
 	if (config.username && config.password)
 		auth_method |= SSH_AUTH_METHOD_PASSWORD;
 
@@ -365,7 +368,7 @@ free_ssh:
 	if (ssh_session) ssh_free(ssh_session);
 
 	DEBUG("session closed\n");
-	exit(EXIT_SUCCESS);
+	uloop_end();
 }
 
 static void
@@ -393,6 +396,7 @@ ssh_handle_connection(struct uloop_fd *u_fd, __unused unsigned int events)
 			s.ssh_bind = ssh_bind_new();
 			if (!s.ssh_bind) {
 				ERROR("not enough memory\n");
+				uloop_end();
 				return;
 			}
 
@@ -409,6 +413,54 @@ ssh_handle_connection(struct uloop_fd *u_fd, __unused unsigned int events)
 			uloop_fd_add(&s.ssh_fd, ULOOP_READ | ULOOP_WRITE | ULOOP_EDGE_TRIGGER);
 		}
 	}
+}
+
+void
+ssh_reverse_connect(char *user, char *fingerprint, char *host, char *port)
+{
+	LOG("initiating reverse ssh connection\n");
+
+	struct uloop_process *uproc = calloc(1, sizeof(*uproc));
+	if (!uproc || (uproc->pid = fork()) == -1) {
+		free(uproc);
+		return;
+	}
+
+	if (uproc->pid != 0) { /* parent */
+		/* register an event handler for when the child terminates */
+		uproc->cb = ssh_del_client;
+		uloop_process_add(uproc);
+		return;
+	}
+
+	/* child */
+
+	int fd = 0;
+
+	if ((fd = usock(USOCK_TCP, host, port)) < 0) {
+		ERROR("connect failed %d\n", fd);
+		uloop_end();
+		return;
+	}
+
+	s.ssh_bind = ssh_bind_new();
+	if (!s.ssh_bind) {
+		ERROR("not enough memory\n");
+		uloop_end();
+		return;
+	}
+
+	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_LOG_VERBOSITY, &config.log_level);
+	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_RSAKEY, config.host_rsa_key);
+	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_DSAKEY, config.host_dsa_key);
+
+	ssh_bind_set_blocking(s.ssh_bind, 1);
+	ssh_bind_set_fd(s.ssh_bind, fd);
+
+	s.ssh_fd.cb = ssh_cb;
+	s.ssh_fd.fd = fd;
+
+	uloop_fd_add(&s.ssh_fd, ULOOP_READ | ULOOP_WRITE | ULOOP_EDGE_TRIGGER);
 }
 
 static void

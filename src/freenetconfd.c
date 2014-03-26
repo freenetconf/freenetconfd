@@ -20,8 +20,9 @@
 #include <libubox/uloop.h>
 
 #include "freenetconfd.h"
-#include "ssh.h"
 #include "config.h"
+#include "ssh.h"
+#include "ubus.h"
 
 int
 main(int argc, char **argv)
@@ -46,6 +47,12 @@ main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
+	rc = ubus_init();
+	if (rc) {
+		ERROR("ubus init failed\n");
+		exit(EXIT_FAILURE);
+	}
+
 	/* main loop */
 	uloop_run();
 
@@ -53,6 +60,7 @@ main(int argc, char **argv)
 
 	uloop_done();
 
+	ubus_exit();
 	config_exit();
 
 	return EXIT_SUCCESS;

@@ -2,6 +2,7 @@
  * Copyright (C) 2014 Sartura, Ltd.
  *
  * Author: Luka Perkov <luka.perkov@sartura.hr>
+ * Author: Petar Koretic <petar.koretic@sartura.hr>
  *
  * freenetconfd is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,12 +13,10 @@
  * along with freenetconfd. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __SSH_H__
-#define __SSH_H__
+#ifndef __UBUS_H__
+#define __UBUS_H__
 
-void ssh_reverse_connect(char *user, char *fingerprint, char *host, char *port);
+int ubus_init(void);
+void ubus_exit(void);
 
-int ssh_netconf_init(void);
-void ssh_netconf_exit(void);
-
-#endif /* __SSH_H__ */
+#endif /* __UBUS_H__ */
