@@ -166,29 +166,15 @@ xml_handle_get(char *message_id, node_t *xml_in, char **xml_out)
 	return xml_handle_get_config(message_id, xml_in, xml_out);
 }
 
-/* <get-config><source><running/></source><filter></filter></get-config> */
 static int
 xml_handle_get_config(char *message_id, node_t *xml_in, char **xml_out)
 {
 	int rc = -1;
 	char *config = NULL;
-	char *filter = NULL;
 	node_t *doc_out = NULL;
 
-	/* get data from input message */
-	node_t *nfilter = roxml_get_chld(xml_in, "filter", 0);
-	if(!nfilter) goto exit;
-
-	node_t *ns = roxml_get_chld(nfilter, NULL, 0);
-
-	/* if empty filter - return all */
-	/* TODO: construct filter if exists from xml when travelping gives us
- 	 * example */
-	if (ns) filter = NULL;
 
 	/* construct message with mand returned data */
-	/* NOTE: libdmconfig always returns xml prolog and adds 'data' node but
- 	 * only if filter specified, roxml is unable to remove prolog in first case*/
 	doc_out = roxml_load_buf(XML_NETCONF_REPLY_TEMPLATE);
 	if (!doc_out) goto exit;
 
@@ -198,8 +184,15 @@ xml_handle_get_config(char *message_id, node_t *xml_in, char **xml_out)
 	node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
 	if (!attr) goto exit;
 
-	node_t *nconfig = roxml_add_node(root, 0, ROXML_ELM_NODE, filter ? "" : "data", config + strlen(XML_PROLOG));
-	if (!nconfig) goto exit;
+	node_t *data = roxml_add_node(root, 0, ROXML_ELM_NODE, "data", NULL);
+	if (!data) goto exit;
+
+	/* if no filter return all */
+	/* if filter but empty - return nothing */
+	node_t *nfilter = roxml_get_chld(xml_in, "filter", 0);
+	node_t *ns = roxml_get_chld(nfilter, NULL, 0);
+
+	dm_get_xml_config(nfilter, nfilter, &data);
 
 	rc = roxml_commit_changes(doc_out, NULL, xml_out, 0);
 	if (rc) rc = 0;
