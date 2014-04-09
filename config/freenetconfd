@@ -9,7 +9,7 @@ config freenetconfd
 	option password 'admin'
 	option host_rsa_key '/etc/netconf/netconf_host_rsa_key'
 	option host_dsa_key '/etc/netconf/netconf_host_dsa_key'
-	option client_key_pub '/etc/netconf/authorized_keys'
+	option authorized_keys_file '/etc/netconf/authorized_keys'
 	option log_level 0
 	option ssh_timeout_socket 3
 	option ssh_timeout_read 1000

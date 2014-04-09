@@ -16,15 +16,17 @@
 #ifndef __DMCONFIG_H__
 #define __DMCONFIG_H__
 #include <libdmconfig/dmconfig.h>
+#include <libdmconfig/dm_dmconfig_rpc_stub.h>
 #include <roxml.h>
 
-int dm_init(struct event_base **base, DMCONTEXT *ctx, DM_AVPGRP **grp);
-void dm_shutdown(struct event_base **base, DMCONTEXT *ctx, DM_AVPGRP **grp);
+int dm_init(DMCONTEXT *ctx);
+void dm_shutdown(DMCONTEXT *ctx);
+
 char* dm_get_parameter(char *key);
 int dm_set_parameter(char *key, char *value);
 int dm_commit();
 uint16_t dm_get_instance(char *path, char *key, char *value);
 int dm_set_parameters_from_xml(node_t *root, node_t *n);
 int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out);
-uint32_t dm_list_to_xml(const char *prefix, DM_AVPGRP *grp, node_t **xml_out);
+uint32_t dm_list_to_xml(const char *prefix, DM2_AVPGRP *grp, node_t **xml_out);
 #endif /* __CONFIG_H__ */

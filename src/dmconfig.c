@@ -4,41 +4,32 @@
 /* max integer length on 64bit system */
 #define _INT_LEN 21
 
+static char* dm_context_get_parameter(DMCONTEXT *ctx, char *key);
+static int dm_context_get_xml_config(DMCONTEXT *ctx, node_t *filter_root, node_t *filter_node, node_t **xml_out);
+
 /*
  * dm_init() - init libev and dmconfig parts
  *
- * @event_base*:
  * @DMCONTEXT:
- * DM_AVPGRP*:
  *
  * NOTE: init this only once
  */
-int dm_init(struct event_base **base, DMCONTEXT *ctx, DM_AVPGRP **grp)
+int dm_init(DMCONTEXT *ctx)
 {
 	int rc = -1;
 
-	if (!(*base = event_init())) {
-		fprintf(stderr,"dmconfig: event init failed\n");
-		return rc;
-	}
+	dm_context_init(ctx, EV_DEFAULT, AF_INET, NULL, NULL, NULL);
 
-	dm_context_init(ctx, *base);
-
-	rc = dm_init_socket(ctx, AF_INET);
-	if (rc) {
-		fprintf(stderr, "dmconfig: init socket failed\n");
+	/* connect */
+	if ((rc = dm_connect(ctx)) != RC_OK) {
+		fprintf(stderr, "dmconfig: connect failed\n");
 		goto exit;
 	}
 
-	rc = dm_send_start_session(ctx, CMD_FLAG_READWRITE, NULL, NULL);
-	if (rc) {
+	if ((rc = rpc_startsession(ctx, CMD_FLAG_READWRITE, 10, NULL)) != RC_OK) {
 		fprintf(stderr, "dmconfig: send start session failed\n");
 		goto exit;
 	}
-
-	*grp = dm_grp_new();
-	if (*grp) rc = 0;
-
 exit:
 	return rc;
 }
@@ -46,19 +37,16 @@ exit:
 /*
  * dm_shutdown() - deinit libev and dmconfig parts
  *
- * @event_base*:
  * @DMCONTEXT:
- * DM_AVPGRP*:
  *
  */
-void dm_shutdown(struct event_base **base, DMCONTEXT *ctx, DM_AVPGRP **grp)
+void dm_shutdown(DMCONTEXT *ctx)
 {
-	if (*grp) dm_grp_free(*grp);
-	if (dm_context_get_sessionid(ctx))
-		dm_send_end_session(ctx);
-	dm_shutdown_socket(ctx);
-	event_base_free(*base);
+	rpc_endsession(ctx);
+	dm_context_shutdown(ctx, DMCONFIG_OK);
+	dm_context_release(ctx);
 }
+
 /*
  * dm_get_parameter() - get parameter from mand
  *
@@ -70,33 +58,45 @@ char* dm_get_parameter(char *key)
 {
 	if (!key) return NULL;
 
-	DMCONTEXT ctx;
-	DM_AVPGRP *grp = NULL, *ret_grp;
-	struct event_base *base;
-
-	uint32_t type, vendor_id;
-	uint8_t	flags;
-	void *data;
-	size_t len;
+	DMCONTEXT *ctx;
 	char *rp = NULL;
-	int rc;
 
-	rc = dm_init(&base, &ctx, &grp);
-	if (rc) goto exit;
+	if (!(ctx = dm_context_new()))
+		return NULL;
 
-	rc = dm_grp_get_unknown(&grp, key);
-	if (rc) goto exit;
+	if (dm_init(ctx) != RC_OK)
+		goto exit;
 
-	rc = dm_send_packet_get(&ctx, grp, &ret_grp);
-	if (rc) goto exit;
-
-	rc = dm_avpgrp_get_avp(ret_grp, &type, &flags, &vendor_id, &data, &len);
-	if (rc) goto exit;
-
-	dm_decode_unknown_as_string(type, data, len, &rp);
+	rp = dm_context_get_parameter(ctx, key);
 
 exit:
-	dm_shutdown(&base, &ctx, &grp);
+	dm_shutdown(ctx);
+	return rp;
+}
+
+static char* dm_context_get_parameter(DMCONTEXT *ctx, char *key)
+{
+	if (!key) return NULL;
+
+	DM2_AVPGRP answer;
+
+	uint32_t code, vendor_id;
+	void *data;
+	size_t size;
+	char *rp = NULL;
+
+	printf("GET DB: %s\n", key);
+	memset(&answer, 0, sizeof(answer));
+	if (rpc_db_get(ctx, 1, (const char **)&key, &answer) != RC_OK)
+		goto exit;
+
+	if (dm_expect_avp(&answer, &code, &vendor_id, &data, &size) != RC_OK
+	    || vendor_id != VP_TRAVELPING
+	    || dm_expect_group_end(&answer) != RC_OK
+	    || dm_decode_unknown_as_string(code, data, size, &rp) != RC_OK)
+		goto exit;
+
+exit:
 	return rp;
 }
 
@@ -112,24 +112,31 @@ int dm_set_parameter(char *key, char *value)
 {
 	if(!key || !value) return -1;
 
-	DMCONTEXT ctx;
-	DM_AVPGRP *grp = NULL;
-	struct event_base *base;
+	DMCONTEXT *ctx;
 	int rc = -1;
+	struct rpc_db_set_path_value set_value = {
+		.path  = key,
+		.value = {
+			.code = AVP_UNKNOWN,
+			.vendor_id = VP_TRAVELPING,
+			.data = value,
+			.size = strlen(value),
+		},
+	};
 
-	rc = dm_init(&base, &ctx, &grp);
-	if (rc) goto exit;
+	if (!(ctx = dm_context_new()))
+		return rc;
 
-	rc = dm_grp_set_unknown(&grp, key, value);
-	if (rc) goto exit;
+	if (dm_init(ctx) != RC_OK)
+		goto exit;
 
-	rc = dm_send_packet_set(&ctx, grp);
-	if (rc) goto exit;
+	if ((rc = rpc_db_set(ctx, 1, &set_value, NULL)) != RC_OK)
+		goto exit;
 
 	rc = 0;
 
 exit:
-	dm_shutdown(&base, &ctx, &grp);
+	dm_shutdown(ctx);
 
 	return rc;
 }
@@ -142,22 +149,22 @@ exit:
  */
 int dm_commit()
 {
-	DMCONTEXT ctx;
-	DM_AVPGRP *grp = NULL;
-	struct event_base *base;
+	DMCONTEXT *ctx;
 	int rc = -1;
 
-	rc = dm_init(&base, &ctx, &grp);
-	if (rc) goto exit;
+	if (!(ctx = dm_context_new()))
+		return rc;
 
-	rc = dm_send_commit(&ctx);
-	if (rc) {
+	if (dm_init(ctx) != RC_OK)
+		goto exit;
+
+	if ((rc = rpc_db_commit(ctx, NULL)) != RC_OK) {
 		fprintf(stderr, "dmconfig: couldn't commit changes\n");
 		goto exit;
 	}
 
 exit:
-	dm_shutdown(&base, &ctx, &grp);
+	dm_shutdown(ctx);
 
 	return rc;
 }
@@ -173,27 +180,37 @@ exit:
  */
 uint16_t dm_get_instance(char *path, char *key, char *value)
 {
-	DMCONTEXT ctx;
-	DM_AVPGRP *grp = NULL;
-	struct event_base *base;
 	int rc = -1;
 	uint16_t instance = 0;
+	DMCONTEXT *ctx;
+	struct dm2_avp search = {
+			.code = AVP_UNKNOWN,
+			.vendor_id = VP_TRAVELPING,
+			.data = value,
+			.size = strlen(value),
+	};
+	DM2_AVPGRP answer;
 
 	if(!path) path = "";
 
-	rc = dm_init(&base, &ctx, &grp);
-	if (rc) goto exit;
+	if (!(ctx = dm_context_new()))
+		return rc;
 
-	dm_grp_set_string(&grp, key, value);
-	rc = dm_send_find_instance(&ctx, path, grp, &instance);
+	if (dm_init(ctx) != RC_OK)
+		goto exit;
 
-	if (rc) {
+	if ((rc = rpc_db_findinstance(ctx, path, key, &search, &answer)) != RC_OK) {
+		fprintf(stderr, "dmconfig: couldn't get instance\n");
+		goto exit;
+	}
+
+	if ((rc = dm_expect_uint16_type(&answer, AVP_UINT16, VP_TRAVELPING, &instance)) != RC_OK) {
 		fprintf(stderr, "dmconfig: couldn't get instance\n");
 		goto exit;
 	}
 
 exit:
-	dm_shutdown(&base, &ctx, &grp);
+	dm_shutdown(ctx);
 
 	return instance;
 }
@@ -318,158 +335,177 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
  * dm_list_to_xml() - recursive function which creates XML from mand list
  *
  * @char*: path prefix which is created (system.ntp.)
- * @DM_AVPGRP*: mand request context
+ * @DM2_AVPGRP*: mand request context
  * @node_t*: XML root which we are creating
  *
  */
-uint32_t dm_list_to_xml(const char *prefix, DM_AVPGRP *grp, node_t **xml_out)
+uint32_t dm_list_to_xml(const char *prefix, DM2_AVPGRP *grp, node_t **xml_out)
 {
 	//printf("prefix:%s\n", prefix);
 
 	uint32_t r;
-	DM_OBJ *container;
+	DM2_AVPGRP container;
+	uint32_t code;
+	uint32_t vendor_id;
+	void *data;
+	size_t size;
+
 	char *name, *path;
-	uint32_t type;
+	uint16_t id;
 
-	if ((r = dm_expect_object(grp, &container)) != RC_OK) {
+	if ((r = dm_expect_avp(grp, &code, &vendor_id, &data, &size)) != RC_OK)
 		return r;
-	}
 
-	if ((r = dm_expect_string_type(container, AVP_NODE_NAME, VP_TRAVELPING, &name)) != RC_OK) {
-		return r;
-	}
+	if (vendor_id != VP_TRAVELPING)
+		return RC_ERR_MISC;
 
-	if ((r = dm_expect_uint32_type(container, AVP_NODE_TYPE, VP_TRAVELPING, &type)) != RC_OK) {
-		return r;
-	}
+	dm_init_avpgrp(grp->ctx, data, size, &container);
 
-	if (!(path = talloc_asprintf(container, "%s.%s", prefix, name)))
-		return RC_ERR_ALLOC;
+	switch (code) {
+	case AVP_TABLE:
+	case AVP_OBJECT:
+	case AVP_ELEMENT:
+		if ((r = dm_expect_string_type(&container, AVP_NAME, VP_TRAVELPING, &name)) != RC_OK)
+			return r;
+
+		if (!(path = talloc_asprintf(container.ctx, "%s.%s", prefix, name)))
+			return RC_ERR_ALLOC;
+		break;
+
+	case AVP_INSTANCE:
+		if ((r = dm_expect_uint16_type(&container, AVP_NAME, VP_TRAVELPING, &id)) != RC_OK)
+			return r;
+
+		if (!(path = talloc_asprintf(container.ctx, "%s.%d", prefix, id)))
+			return RC_ERR_ALLOC;
+		break;
+
+	default:
+		printf("unknown object: %s, type: %d\n", prefix, code);
+		return RC_ERR_MISC;
+	}
 
 //	printf("path:%s\n", path);
+//	printf("type:%d for name:%s\n", code, name);
 
-		//printf("type:%d for name:%s\n", type, name);
-	switch (type) {
-		case NODE_PARAMETER:
-			{
-				uint32_t code;
-				uint32_t vendor_id;
-				void *data;
-				size_t size;
+	switch (code) {
+	case AVP_ELEMENT: {
+		uint32_t type;
+		char *value = NULL;
+		//printf("%s:", name);
 
-				//printf("%s:", name);
-				if (dm_expect_any(container, &code, &vendor_id, &data, &size) == RC_OK) {
-					//printf("------------pathnside:%s:\n", path);
-					char *value = NULL;
+		if ((r = dm_expect_uint32_type(&container, AVP_TYPE, VP_TRAVELPING, &type)) != RC_OK
+		    || (r = dm_expect_avp(&container, &code, &vendor_id, &data, &size)) != RC_OK)
+			return r;
 
-					switch(code) {
-						case AVP_UINT32:
-							value = calloc(_INT_LEN, 1);
-							snprintf(value, _INT_LEN, "%" PRIu32, dm_get_uint32_avp(data));
-						break;
+		//printf("------------pathnside:%s:\n", path);
 
-						case AVP_UINT64:
-							value = calloc(_INT_LEN, 1);
-							snprintf(value, _INT_LEN, "%" PRIu64, dm_get_uint64_avp(data));
-						break;
-
-						case AVP_INT32:
-							value = calloc(_INT_LEN, 1);
-							snprintf(value, _INT_LEN, "%" PRId32, dm_get_int32_avp(data));
-						break;
-
-						case AVP_INT64:
-							value = calloc(_INT_LEN, 1);
-							snprintf(value, _INT_LEN, "%" PRId64, dm_get_int64_avp(data));
-						break;
-
-						case AVP_BOOL:
-							value = strdup((dm_get_uint8_avp(data) ? "true" : "false"));
-						break;
-
-						case AVP_STRING:
-						case AVP_ENUM:
-							if (size) {
-								value = calloc(size + 1, 1);
-								snprintf(value, size + 1, "%s", (char *) data);
-							}
-						break;
-
-						case AVP_ADDRESS: {
-							char buf[INET6_ADDRSTRLEN];
-          	  	  	  	  	int af;
-          	  	  	  	  	union {
-              	  	  	  	  	struct in_addr  in;
-              	  	  	  	  	struct in6_addr in6;
-          	  	  	  	  	} addr;
-
-          	  	  	  	  	if (dm_get_address_avp(&af, &addr, sizeof(addr), data, size)) {
-          	  	  	  	  		inet_ntop(af, &addr, buf, sizeof(buf));
-          	  	  	  	  		value = strdup(buf);
-							}
-						}
-						break;
-
-						default:
-							printf("unknown type:%d", code);
-					}
-
-					//printf("\n");
-					printf("name:%s, val:%s\n", name, value);
-
-					//if (!strcmp(name, "timezone-utc-offset")) break;
-
-					node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, value);
-					if (!n)
-						fprintf(stderr, "dm_get_xml_config: unable to add parameter node\n");
-					else {
-						if (!strcmp(name, "type"))
-							roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns:ianaift", "urn:ietf:params:xml:ns:yang:iana-if-type");
-					}
-
-					free(value);
-
-					break;
-				}
-			}
-		case NODE_TABLE:
-		case NODE_OBJECT:
-			{
-				printf("node:%s\n", name);
-				DM_OBJ *obj;
-
-				if ((r = dm_expect_object(container, &obj)) != RC_OK)
-					return RC_OK;
-
-				// if this is instance node, skip it
-				/*
-				if (!strcmp(name, "server")) {
-					while (dm_list_to_xml(path, obj, xml_out) == RC_OK);
-				}
-				else */
-
-				if (atol(name) || !strcmp(name, "search") || !strcmp(name, "user-authentication-order") || !strcmp(name, "user") || !strcmp(name, "authentication")) {
-					//node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, "server", NULL);
-					while (dm_list_to_xml(path, obj, xml_out) == RC_OK);
-				}
-				else {
-					node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, NULL);
-					if (!n)
-						fprintf(stderr, "dm_get_xml_config: unable to add parameter node\n");
-					else{
-						if(!strcmp(name, "ipv4") || !strcmp(name, "ipv6"))
-							roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns", "urn:ietf:params:xml:ns:yang:ietf-ip");
-
-						while (dm_list_to_xml(path, obj, &n) == RC_OK);
-					}
-				}
-
-				break;
-			}
-		default:
-			printf("unknown object: %s, type: %d\n", path ,type);
-
+		switch(type) {
+		case AVP_UINT32:
+			value = calloc(_INT_LEN, 1);
+			snprintf(value, _INT_LEN, "%" PRIu32, dm_get_uint32_avp(data));
 			break;
+
+		case AVP_UINT64:
+			value = calloc(_INT_LEN, 1);
+			snprintf(value, _INT_LEN, "%" PRIu64, dm_get_uint64_avp(data));
+			break;
+
+		case AVP_INT32:
+			value = calloc(_INT_LEN, 1);
+			snprintf(value, _INT_LEN, "%" PRId32, dm_get_int32_avp(data));
+			break;
+
+		case AVP_INT64:
+			value = calloc(_INT_LEN, 1);
+			snprintf(value, _INT_LEN, "%" PRId64, dm_get_int64_avp(data));
+			break;
+
+		case AVP_BOOL:
+			value = strdup((dm_get_uint8_avp(data) ? "true" : "false"));
+			break;
+
+		case AVP_STRING:
+		case AVP_ENUM:
+			if (size) {
+				value = calloc(size + 1, 1);
+				snprintf(value, size + 1, "%s", (char *) data);
+			}
+			break;
+
+		case AVP_ADDRESS: {
+			char buf[INET6_ADDRSTRLEN];
+			int af;
+			union {
+				struct in_addr  in;
+				struct in6_addr in6;
+			} addr;
+
+			if (dm_get_address_avp(&af, &addr, sizeof(addr), data, size)) {
+				inet_ntop(af, &addr, buf, sizeof(buf));
+				value = strdup(buf);
+			}
+			break;
+		}
+
+		default:
+			printf("unknown type:%d", code);
+		}
+
+		//printf("\n");
+		//printf("name:%s, val:%s\n", name, value);
+
+		//if (!strcmp(name, "timezone-utc-offset")) break;
+
+		node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, value);
+		if (!n)
+			fprintf(stderr, "dm_get_xml_config: unable to add parameter node\n");
+		else {
+			if (!strcmp(name, "type"))
+				roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns:ianaift", "urn:ietf:params:xml:ns:yang:iana-if-type");
+			else if (!strcmp(name, "system"))
+				roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns", "urn:ietf:params:xml:ns:yang:ietf-system");
+			else if (!strcmp(name, "interfaces"))
+				roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns", "urn:ietf:params:xml:ns:yang:ietf-interfaces");
+		}
+
+		free(value);
+		break;
+	}
+
+
+	case AVP_INSTANCE:
+		while (dm_list_to_xml(path, &container, xml_out) == RC_OK);
+		break;
+
+	case AVP_TABLE:
+	case AVP_OBJECT:
+		printf("node: %s, type:%d\n", name, code);
+
+		// if this is instance node, skip it
+		/*
+		  if (!strcmp(name, "server")) {
+		  while (dm_list_to_xml(path, obj, xml_out) == RC_OK);
+		  }
+		  else */
+
+		if (!strcmp(name, "search") || !strcmp(name, "user-authentication-order") || !strcmp(name, "user") || !strcmp(name, "authentication")) {
+			//node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, "server", NULL);
+			while (dm_list_to_xml(path, &container, xml_out) == RC_OK);
+		}
+		else {
+			node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, NULL);
+			if (!n)
+				fprintf(stderr, "dm_get_xml_config: unable to add parameter node\n");
+			else{
+				if(!strcmp(name, "ipv4") || !strcmp(name, "ipv6"))
+					roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns", "urn:ietf:params:xml:ns:yang:ietf-ip");
+
+				while (dm_list_to_xml(path, &container, &n) == RC_OK);
+			}
+		}
+
+		break;
 	}
 
 	return RC_OK;
@@ -485,7 +521,7 @@ uint32_t dm_list_to_xml(const char *prefix, DM_AVPGRP *grp, node_t **xml_out)
  * <get><filter><system><ntp></ntp></system></filter></get></rpc>
  */
 
-int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out)
+static int dm_context_get_xml_config(DMCONTEXT *ctx, node_t *filter_root, node_t *filter_node, node_t **xml_out)
 {
 	if (!filter_root || !(*xml_out) || !filter_node) {
 		printf("invalid filter or node\n");
@@ -528,12 +564,10 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 
 		};
 
-		return dm_get_xml_config(filter_root, filter_root, xml_out);
+		return dm_context_get_xml_config(ctx, filter_root, filter_root, xml_out);
 	}
 
-	DMCONTEXT ctx;
-	DM_AVPGRP *grp = NULL;
-	struct event_base *base;
+	DM2_AVPGRP answer;
 	int rc = -1;
 
 	char *name = roxml_get_name(child, NULL, 0);
@@ -556,11 +590,9 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 
 	}
 
-	rc = dm_init(&base, &ctx, &grp);
-	if (rc) goto exit;
-
-	rc = dm_send_list(&ctx, path, 0, &grp);
-	if (rc) {
+	memset(&answer, 0, sizeof(answer));
+	printf("list path: %s\n", path);
+	if ((rc = rpc_db_list(ctx, 0, path, &answer)) != RC_OK) {
 		fprintf(stderr, "dmconfig: couldn't get list for path:%s\n", path);
 		goto exit;
 	}
@@ -569,20 +601,45 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 	if (!c) {
 		printf("path:%s\n", path);
 		printf("name:%s\n", name);
+
 		node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, NULL);
 		if (!strcmp(name, "system")) roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns",  "urn:ietf:params:xml:ns:yang:ietf-system");
 		if (!strcmp(name, "interfaces")) roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns",  "urn:ietf:params:xml:ns:yang:ietf-interfaces");
 
-		while (dm_list_to_xml(path, grp, &n) == RC_OK);
-		char *param = dm_get_parameter(path);
+		while (dm_list_to_xml(path, &answer, &n) == RC_OK);
+
+/*
+		char *param = dm_context_get_parameter(ctx, path);
 		if (param) {
 		}
+*/
 	}
 
-	dm_get_xml_config(filter_root, child, xml_out);
+	dm_context_get_xml_config(ctx, filter_root, child, xml_out);
 
 exit:
-	//dm_shutdown(&base, &ctx, &grp);
+	return rc;
+}
+
+int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out)
+{
+	DMCONTEXT *ctx;
+	int rc = -1;
+
+	if (!filter_root || !(*xml_out) || !filter_node) {
+		printf("invalid filter or node\n");
+	}
+
+	if (!(ctx = dm_context_new()))
+		return rc;
+
+	if (dm_init(ctx) != RC_OK)
+		goto exit;
+
+	rc = dm_context_get_xml_config(ctx, filter_root, filter_node, xml_out);
+
+exit:
+	dm_shutdown(ctx);
 
 	return rc;
 }

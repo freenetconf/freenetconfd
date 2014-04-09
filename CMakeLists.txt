@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.6)
 PROJECT(freenetconfd)
 #ADD_DEFINITIONS(-Os -Wall -Werror --std=gnu99 -Wmissing-declarations)
-ADD_DEFINITIONS(-Os -Wall --std=gnu99 -Wmissing-declarations -D_GNU_SOURCE)
+ADD_DEFINITIONS(-O0 -Wall --std=gnu99 -Wmissing-declarations -D_GNU_SOURCE)
 
 FILE(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
