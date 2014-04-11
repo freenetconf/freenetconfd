@@ -78,7 +78,7 @@ static char* dm_context_get_parameter(DMCONTEXT *ctx, char *key)
 {
 	if (!key) return NULL;
 
-	DM2_AVPGRP answer;
+	DM2_AVPGRP answer = DM2_AVPGRP_INITIALIZER;
 
 	uint32_t code, vendor_id;
 	void *data;
@@ -86,7 +86,7 @@ static char* dm_context_get_parameter(DMCONTEXT *ctx, char *key)
 	char *rp = NULL;
 
 	printf("GET DB: %s\n", key);
-	memset(&answer, 0, sizeof(answer));
+
 	if (rpc_db_get(ctx, 1, (const char **)&key, &answer) != RC_OK)
 		goto exit;
 
@@ -189,7 +189,7 @@ uint16_t dm_get_instance(char *path, char *key, char *value)
 			.data = value,
 			.size = strlen(value),
 	};
-	DM2_AVPGRP answer;
+	DM2_AVPGRP answer = DM2_AVPGRP_INITIALIZER;
 
 	if(!path) path = "";
 
@@ -567,7 +567,7 @@ static int dm_context_get_xml_config(DMCONTEXT *ctx, node_t *filter_root, node_t
 		return dm_context_get_xml_config(ctx, filter_root, filter_root, xml_out);
 	}
 
-	DM2_AVPGRP answer;
+	DM2_AVPGRP answer = DM2_AVPGRP_INITIALIZER;
 	int rc = -1;
 
 	char *name = roxml_get_name(child, NULL, 0);
@@ -590,7 +590,6 @@ static int dm_context_get_xml_config(DMCONTEXT *ctx, node_t *filter_root, node_t
 
 	}
 
-	memset(&answer, 0, sizeof(answer));
 	printf("list path: %s\n", path);
 	if ((rc = rpc_db_list(ctx, 0, path, &answer)) != RC_OK) {
 		fprintf(stderr, "dmconfig: couldn't get list for path:%s\n", path);
