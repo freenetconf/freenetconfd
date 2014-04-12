@@ -4,32 +4,33 @@
 /* max integer length on 64bit system */
 #define _INT_LEN 21
 
-static char* dm_context_get_parameter(DMCONTEXT *ctx, char *key);
-static int dm_context_get_xml_config(DMCONTEXT *ctx, node_t *filter_root, node_t *filter_node, node_t **xml_out);
+static DMCONTEXT *ctx;
 
 /*
  * dm_init() - init libev and dmconfig parts
  *
- * @DMCONTEXT:
- *
- * NOTE: init this only once
  */
-int dm_init(DMCONTEXT *ctx)
+int dm_init()
 {
 	int rc = -1;
+
+	if (!(ctx = dm_context_new()))
+		goto exit;
 
 	dm_context_init(ctx, EV_DEFAULT, AF_INET, NULL, NULL, NULL);
 
 	/* connect */
-	if ((rc = dm_connect(ctx)) != RC_OK) {
+	if ((dm_connect(ctx)) != RC_OK) {
 		fprintf(stderr, "dmconfig: connect failed\n");
 		goto exit;
 	}
 
-	if ((rc = rpc_startsession(ctx, CMD_FLAG_READWRITE, 10, NULL)) != RC_OK) {
+	if ((rpc_startsession(ctx, CMD_FLAG_READWRITE, 10, NULL)) != RC_OK) {
 		fprintf(stderr, "dmconfig: send start session failed\n");
 		goto exit;
 	}
+
+	rc = 0;
 exit:
 	return rc;
 }
@@ -37,10 +38,8 @@ exit:
 /*
  * dm_shutdown() - deinit libev and dmconfig parts
  *
- * @DMCONTEXT:
- *
  */
-void dm_shutdown(DMCONTEXT *ctx)
+void dm_shutdown()
 {
 	rpc_endsession(ctx);
 	dm_context_shutdown(ctx, DMCONFIG_OK);
@@ -55,26 +54,6 @@ void dm_shutdown(DMCONTEXT *ctx)
  * Returns NULL on error or value if found. Must be freed.
  */
 char* dm_get_parameter(char *key)
-{
-	if (!key) return NULL;
-
-	DMCONTEXT *ctx;
-	char *rp = NULL;
-
-	if (!(ctx = dm_context_new()))
-		return NULL;
-
-	if (dm_init(ctx) != RC_OK)
-		goto exit;
-
-	rp = dm_context_get_parameter(ctx, key);
-
-exit:
-	dm_shutdown(ctx);
-	return rp;
-}
-
-static char* dm_context_get_parameter(DMCONTEXT *ctx, char *key)
 {
 	if (!key) return NULL;
 
@@ -112,7 +91,6 @@ int dm_set_parameter(char *key, char *value)
 {
 	if(!key || !value) return -1;
 
-	DMCONTEXT *ctx;
 	int rc = -1;
 	struct rpc_db_set_path_value set_value = {
 		.path  = key,
@@ -124,19 +102,12 @@ int dm_set_parameter(char *key, char *value)
 		},
 	};
 
-	if (!(ctx = dm_context_new()))
-		return rc;
-
-	if (dm_init(ctx) != RC_OK)
-		goto exit;
-
 	if ((rc = rpc_db_set(ctx, 1, &set_value, NULL)) != RC_OK)
 		goto exit;
 
 	rc = 0;
 
 exit:
-	dm_shutdown(ctx);
 
 	return rc;
 }
@@ -149,14 +120,7 @@ exit:
  */
 int dm_commit()
 {
-	DMCONTEXT *ctx;
 	int rc = -1;
-
-	if (!(ctx = dm_context_new()))
-		return rc;
-
-	if (dm_init(ctx) != RC_OK)
-		goto exit;
 
 	if ((rc = rpc_db_commit(ctx, NULL)) != RC_OK) {
 		fprintf(stderr, "dmconfig: couldn't commit changes\n");
@@ -164,7 +128,6 @@ int dm_commit()
 	}
 
 exit:
-	dm_shutdown(ctx);
 
 	return rc;
 }
@@ -182,7 +145,6 @@ uint16_t dm_get_instance(char *path, char *key, char *value)
 {
 	int rc = -1;
 	uint16_t instance = 0;
-	DMCONTEXT *ctx;
 	struct dm2_avp search = {
 			.code = AVP_UNKNOWN,
 			.vendor_id = VP_TRAVELPING,
@@ -192,12 +154,6 @@ uint16_t dm_get_instance(char *path, char *key, char *value)
 	DM2_AVPGRP answer = DM2_AVPGRP_INITIALIZER;
 
 	if(!path) path = "";
-
-	if (!(ctx = dm_context_new()))
-		return rc;
-
-	if (dm_init(ctx) != RC_OK)
-		goto exit;
 
 	if ((rc = rpc_db_findinstance(ctx, path, key, &search, &answer)) != RC_OK) {
 		fprintf(stderr, "dmconfig: couldn't get instance\n");
@@ -210,7 +166,6 @@ uint16_t dm_get_instance(char *path, char *key, char *value)
 	}
 
 exit:
-	dm_shutdown(ctx);
 
 	return instance;
 }
@@ -303,7 +258,10 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 		/* remove 'else' for ability of changing 'key' value */
 		/* I don't see that specified in YANG/NCS */
 		else {
-			dm_set_parameter(path, val);
+			if (dm_set_parameter(path, val)) {
+				fprintf(stderr, "unable to set parameter:%s", path);
+				return -1;
+			}
 			printf("parameter:%s=\"%s\"\n", path, val);
 		}
 
@@ -521,7 +479,7 @@ uint32_t dm_list_to_xml(const char *prefix, DM2_AVPGRP *grp, node_t **xml_out)
  * <get><filter><system><ntp></ntp></system></filter></get></rpc>
  */
 
-static int dm_context_get_xml_config(DMCONTEXT *ctx, node_t *filter_root, node_t *filter_node, node_t **xml_out)
+int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out)
 {
 	if (!filter_root || !(*xml_out) || !filter_node) {
 		printf("invalid filter or node\n");
@@ -564,7 +522,7 @@ static int dm_context_get_xml_config(DMCONTEXT *ctx, node_t *filter_root, node_t
 
 		};
 
-		return dm_context_get_xml_config(ctx, filter_root, filter_root, xml_out);
+		return dm_get_xml_config(filter_root, filter_root, xml_out);
 	}
 
 	DM2_AVPGRP answer = DM2_AVPGRP_INITIALIZER;
@@ -606,39 +564,10 @@ static int dm_context_get_xml_config(DMCONTEXT *ctx, node_t *filter_root, node_t
 		if (!strcmp(name, "interfaces")) roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns",  "urn:ietf:params:xml:ns:yang:ietf-interfaces");
 
 		while (dm_list_to_xml(path, &answer, &n) == RC_OK);
-
-/*
-		char *param = dm_context_get_parameter(ctx, path);
-		if (param) {
-		}
-*/
 	}
 
-	dm_context_get_xml_config(ctx, filter_root, child, xml_out);
+	dm_get_xml_config(filter_root, child, xml_out);
 
 exit:
-	return rc;
-}
-
-int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out)
-{
-	DMCONTEXT *ctx;
-	int rc = -1;
-
-	if (!filter_root || !(*xml_out) || !filter_node) {
-		printf("invalid filter or node\n");
-	}
-
-	if (!(ctx = dm_context_new()))
-		return rc;
-
-	if (dm_init(ctx) != RC_OK)
-		goto exit;
-
-	rc = dm_context_get_xml_config(ctx, filter_root, filter_node, xml_out);
-
-exit:
-	dm_shutdown(ctx);
-
 	return rc;
 }

@@ -22,6 +22,7 @@
 #include "freenetconfd.h"
 #include "ssh.h"
 #include "config.h"
+#include "dmconfig.h"
 
 int
 main(int argc, char **argv)
@@ -46,7 +47,15 @@ main(int argc, char **argv)
 		return -1;
 	}
 
+	rc = dm_init();
+	if (rc) {
+		fprintf(stderr, "mand init failed");
+		return -1;
+	}
+
 	uloop_run();
+
+	dm_shutdown();
 
 	ssh_netconf_exit();
 

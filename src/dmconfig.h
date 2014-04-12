@@ -20,8 +20,8 @@
 #include <libdmconfig/dm_dmconfig_rpc_stub.h>
 #include <roxml.h>
 
-int dm_init(DMCONTEXT *ctx);
-void dm_shutdown(DMCONTEXT *ctx);
+int dm_init();
+void dm_shutdown();
 
 char* dm_get_parameter(char *key);
 int dm_set_parameter(char *key, char *value);
