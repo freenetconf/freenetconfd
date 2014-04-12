@@ -53,6 +53,8 @@ main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
+	LOG("entering main loop\n");
+
 	/* main loop */
 	uloop_run();
 
