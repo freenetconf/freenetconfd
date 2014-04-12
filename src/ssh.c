@@ -401,8 +401,8 @@ ssh_handle_connection(struct uloop_fd *u_fd, __unused unsigned int events)
 			}
 
 			ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_LOG_VERBOSITY, &config.log_level);
-			ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_RSAKEY, config.host_rsa_key);
-			ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_DSAKEY, config.host_dsa_key);
+			ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_HOSTKEY, config.host_rsa_key);
+			ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_HOSTKEY, config.host_dsa_key);
 
 			ssh_bind_set_blocking(s.ssh_bind, 1);
 			ssh_bind_set_fd(s.ssh_bind, client_fd);
@@ -451,8 +451,8 @@ ssh_reverse_connect(char *user, char *fingerprint, char *host, char *port)
 	}
 
 	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_LOG_VERBOSITY, &config.log_level);
-	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_RSAKEY, config.host_rsa_key);
-	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_DSAKEY, config.host_dsa_key);
+	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_HOSTKEY, config.host_rsa_key);
+	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_HOSTKEY, config.host_dsa_key);
 
 	ssh_bind_set_blocking(s.ssh_bind, 1);
 	ssh_bind_set_fd(s.ssh_bind, fd);
