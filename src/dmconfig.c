@@ -574,3 +574,45 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 exit:
 	return rc;
 }
+
+/*
+ * dm_set_current_datetime() - set datetime
+ *
+ * @char*: value to be set
+ *
+ * 	Sets datetime if ntp is not enabled.
+ * 	Returns 0 on success, 1 on ntp enabled, -1 on error.
+ */
+int dm_set_current_datetime(char *value)
+{
+	int rc = -1;
+	char *ntp_enabled = NULL;
+
+	ntp_enabled = dm_get_parameter("system.ntp.enabled");
+	if (!ntp_enabled) {
+		fprintf(stderr, "unable to get system ntp state\n");
+		goto exit;
+	}
+
+	if (!strcmp(ntp_enabled, "true")) {
+		rc = 1;
+		goto exit;
+	}
+
+	if (!strcmp(ntp_enabled, "false")) {
+		rc = dm_set_parameter("system-state.clock.current-datetime", value);
+		if (rc) {
+			rc = -1;
+			goto exit;
+		}
+		rc = 0;
+	}
+	else {
+		fprintf(stderr, "unknown ntp value\n");
+	}
+
+exit:
+
+	free(ntp_enabled);
+	return rc;
+}

@@ -52,16 +52,9 @@ XML_PROLOG \
 "<rpc-reply xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">" \
 "</rpc-reply>"
 
-#define XML_NETCONF_RPC_ERROR_TEMPLATE \
+#define XML_NETCONF_REPLY_ERROR_TEMPLATE \
 "<rpc-reply xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"\
  "<rpc-error>" \
-  "<error-type>error</error-type>" \
-  "<error-tag>missing-attribute</error-tag>" \
-  "<error-severity>error</error-severity>" \
-  "<error-info>" \
-   "<bad-attribute>message-id</bad-attribute>" \
-   "<bad-element>rpc</bad-element>" \
-  "</error-info>" \
  "</rpc-error>" \
 "</rpc-reply>"
 
