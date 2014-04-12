@@ -24,6 +24,7 @@ struct config_t {
 	char *port;
 	char *username;
 	char *password;
+	char *host_ecdsa_key;
 	char *host_dsa_key;
 	char *host_rsa_key;
 	char *authorized_keys_file;

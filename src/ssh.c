@@ -401,8 +401,9 @@ ssh_handle_connection(struct uloop_fd *u_fd, __unused unsigned int events)
 			}
 
 			ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_LOG_VERBOSITY, &config.log_level);
-			ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_HOSTKEY, config.host_rsa_key);
+			ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_HOSTKEY, config.host_ecdsa_key);
 			ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_HOSTKEY, config.host_dsa_key);
+			ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_HOSTKEY, config.host_rsa_key);
 
 			ssh_bind_set_blocking(s.ssh_bind, 1);
 			ssh_bind_set_fd(s.ssh_bind, client_fd);
@@ -451,8 +452,9 @@ ssh_reverse_connect(char *user, char *fingerprint, char *host, char *port)
 	}
 
 	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_LOG_VERBOSITY, &config.log_level);
-	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_HOSTKEY, config.host_rsa_key);
+	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_HOSTKEY, config.host_ecdsa_key);
 	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_HOSTKEY, config.host_dsa_key);
+	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_HOSTKEY, config.host_rsa_key);
 
 	ssh_bind_set_blocking(s.ssh_bind, 1);
 	ssh_bind_set_fd(s.ssh_bind, fd);
@@ -480,26 +482,37 @@ ssh_netconf_init(void)
 {
 	int rc = 0;
 
-	/* generate host keys they do not exist */
-	if (config.host_rsa_key && access(config.host_rsa_key, F_OK) == -1) {
-		LOG("key doesn't exist: creating %s...\n", config.host_rsa_key);
-		ssh_key host_rsa_key;
-		rc = ssh_pki_generate(SSH_KEYTYPE_RSA, 4096, &host_rsa_key);
+	/* generate host keys that do not exist */
+	ssh_key host_key;
+	if (config.host_ecdsa_key && access(config.host_ecdsa_key, F_OK) == -1) {
+		LOG("key doesn't exist, creating '%s' ...\n", config.host_ecdsa_key);
+		rc = ssh_pki_generate(SSH_KEYTYPE_ECDSA, 512, &host_key);
 		if (rc == SSH_OK) {
-			rc = ssh_pki_export_privkey_file(host_rsa_key, "", NULL, NULL, config.host_rsa_key);
-			if (rc != SSH_OK) ERROR("unable to save key to file\n");
-			free(host_rsa_key);
+			rc = ssh_pki_export_privkey_file(host_key, "", NULL, NULL, config.host_ecdsa_key);
+			if (rc != SSH_OK) ERROR("unable to export private key\n");
+			ssh_key_free(host_key);
+		} else {
+			ERROR("generating ECDSA key failed, make sure that libssh has support for it\n");
 		}
 	}
 
 	if (config.host_dsa_key && access(config.host_dsa_key, F_OK) == -1) {
-		LOG("key doesn't exist: creating %s...\n", config.host_dsa_key);
-		ssh_key host_dsa_key;
-		rc = ssh_pki_generate(SSH_KEYTYPE_DSS, 4096, &host_dsa_key);
+		LOG("key doesn't exist, creating '%s' ...\n", config.host_dsa_key);
+		rc = ssh_pki_generate(SSH_KEYTYPE_DSS, 4096, &host_key);
 		if (rc == SSH_OK) {
-			rc = ssh_pki_export_privkey_file(host_dsa_key, "", NULL, NULL, config.host_dsa_key);
-			if (rc != SSH_OK) ERROR("unable to save key to file\n");
-			free(host_dsa_key);
+			rc = ssh_pki_export_privkey_file(host_key, "", NULL, NULL, config.host_dsa_key);
+			if (rc != SSH_OK) ERROR("unable to export private key\n");
+			ssh_key_free(host_key);
+		}
+	}
+
+	if (config.host_rsa_key && access(config.host_rsa_key, F_OK) == -1) {
+		LOG("key doesn't exist, creating '%s' ...\n", config.host_rsa_key);
+		rc = ssh_pki_generate(SSH_KEYTYPE_RSA, 4096, &host_key);
+		if (rc == SSH_OK) {
+			rc = ssh_pki_export_privkey_file(host_key, "", NULL, NULL, config.host_rsa_key);
+			if (rc != SSH_OK) ERROR("unable to export private key\n");
+			ssh_key_free(host_key);
 		}
 	}
 

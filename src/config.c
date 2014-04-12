@@ -27,6 +27,7 @@ enum {
 	PORT,
 	USERNAME,
 	PASSWORD,
+	HOST_ECDSA_KEY,
 	HOST_DSA_KEY,
 	HOST_RSA_KEY,
 	AUTHORIZED_KEYS_FILE,
@@ -43,6 +44,7 @@ const struct blobmsg_policy config_policy[__OPTIONS_COUNT] = {
 	[PORT] = { .name = "port", .type = BLOBMSG_TYPE_STRING },
 	[USERNAME] = { .name = "username", .type = BLOBMSG_TYPE_STRING },
 	[PASSWORD] = { .name = "password", .type = BLOBMSG_TYPE_STRING },
+	[HOST_ECDSA_KEY] = { .name = "host_ecdsa_key", .type = BLOBMSG_TYPE_STRING },
 	[HOST_DSA_KEY] = { .name = "host_dsa_key", .type = BLOBMSG_TYPE_STRING },
 	[HOST_RSA_KEY] = { .name = "host_rsa_key", .type = BLOBMSG_TYPE_STRING },
 	[AUTHORIZED_KEYS_FILE] = { .name = "authorized_keys_file", .type = BLOBMSG_TYPE_STRING },
@@ -90,6 +92,7 @@ int config_load(void)
 	config.port = NULL;
 	config.username = NULL;
 	config.password = NULL;
+	config.host_ecdsa_key = NULL;
 	config.host_dsa_key = NULL;
 	config.host_rsa_key = NULL;
 	config.authorized_keys_file = NULL;
@@ -111,13 +114,16 @@ int config_load(void)
 	if ((c = tb[PASSWORD]))
 		config.password = strdup(blobmsg_get_string(c));
 
+	if ((c = tb[HOST_ECDSA_KEY]))
+		config.host_ecdsa_key = strdup(blobmsg_get_string(c));
+
 	if ((c = tb[HOST_DSA_KEY]))
 		config.host_dsa_key = strdup(blobmsg_get_string(c));
 
 	if ((c = tb[HOST_RSA_KEY]))
 		config.host_rsa_key = strdup(blobmsg_get_string(c));
 
-	if (!(config.host_rsa_key || config.host_dsa_key)) {
+	if (!(config.host_ecdsa_key || config.host_dsa_key || config.host_rsa_key)) {
 		ERROR("at least one host key must be set\n");
 		uci_unload(uci, conf);
 		uci_free_context(uci);
