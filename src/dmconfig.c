@@ -297,7 +297,7 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
  * @node_t*: XML root which we are creating
  *
  */
-uint32_t dm_list_to_xml(const char *prefix, DM2_AVPGRP *grp, node_t **xml_out)
+static uint32_t dm_list_to_xml(const char *prefix, DM2_AVPGRP *grp, node_t **xml_out, int elem_node)
 {
 	//printf("prefix:%s\n", prefix);
 
@@ -433,7 +433,8 @@ uint32_t dm_list_to_xml(const char *prefix, DM2_AVPGRP *grp, node_t **xml_out)
 
 
 	case AVP_INSTANCE:
-		while (dm_list_to_xml(path, &container, xml_out) == RC_OK);
+		printf("instance\n");
+		while (dm_list_to_xml(path, &container, xml_out, elem_node) == RC_OK);
 		break;
 
 	case AVP_TABLE:
@@ -443,25 +444,27 @@ uint32_t dm_list_to_xml(const char *prefix, DM2_AVPGRP *grp, node_t **xml_out)
 		// if this is instance node, skip it
 		/*
 		  if (!strcmp(name, "server")) {
-		  while (dm_list_to_xml(path, obj, xml_out) == RC_OK);
+		  while (dm_list_to_xml(path, obj, xml_out, elem_node) == RC_OK);
 		  }
 		  else */
 
-		if (!strcmp(name, "search") || !strcmp(name, "user-authentication-order") || !strcmp(name, "user") || !strcmp(name, "authentication")) {
+		if (!strcmp(name, "search") || !strcmp(name, "user-authentication-order") || !strcmp(name, "user") || !strcmp(name, "authentication") || !elem_node++) {
 			//node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, "server", NULL);
-			while (dm_list_to_xml(path, &container, xml_out) == RC_OK);
-		}
-		else {
-			node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, NULL);
-			if (!n)
-				fprintf(stderr, "dm_get_xml_config: unable to add parameter node\n");
-			else{
-				if(!strcmp(name, "ipv4") || !strcmp(name, "ipv6"))
-					roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns", "urn:ietf:params:xml:ns:yang:ietf-ip");
+			while (dm_list_to_xml(path, &container, xml_out, elem_node) == RC_OK);
 
-				while (dm_list_to_xml(path, &container, &n) == RC_OK);
-			}
+			return RC_OK;
 		}
+
+		node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, NULL);
+		if (!n) {
+			fprintf(stderr, "dm_get_xml_config: unable to add parameter node\n");
+			return -1;
+		}
+
+		if(!strcmp(name, "ipv4") || !strcmp(name, "ipv6"))
+			roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns", "urn:ietf:params:xml:ns:yang:ietf-ip");
+
+		while (dm_list_to_xml(path, &container, &n, elem_node) == RC_OK);
 
 		break;
 	}
@@ -563,7 +566,7 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 		if (!strcmp(name, "system")) roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns",  "urn:ietf:params:xml:ns:yang:ietf-system");
 		if (!strcmp(name, "interfaces")) roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns",  "urn:ietf:params:xml:ns:yang:ietf-interfaces");
 
-		while (dm_list_to_xml(path, &answer, &n) == RC_OK);
+		while (dm_list_to_xml(path, &answer, &n, 0) == RC_OK);
 	}
 
 	dm_get_xml_config(filter_root, child, xml_out);
