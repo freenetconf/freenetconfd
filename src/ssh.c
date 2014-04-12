@@ -481,7 +481,7 @@ ssh_netconf_init(void)
 	int rc = 0;
 
 	/* generate host keys they do not exist */
-	if (access(config.host_rsa_key, F_OK) == -1) {
+	if (config.host_rsa_key && access(config.host_rsa_key, F_OK) == -1) {
 		LOG("key doesn't exist: creating %s...\n", config.host_rsa_key);
 		ssh_key host_rsa_key;
 		rc = ssh_pki_generate(SSH_KEYTYPE_RSA, 4096, &host_rsa_key);
@@ -492,7 +492,7 @@ ssh_netconf_init(void)
 		}
 	}
 
-	if (access(config.host_dsa_key, F_OK) == -1) {
+	if (config.host_dsa_key && access(config.host_dsa_key, F_OK) == -1) {
 		LOG("key doesn't exist: creating %s...\n", config.host_dsa_key);
 		ssh_key host_dsa_key;
 		rc = ssh_pki_generate(SSH_KEYTYPE_DSS, 4096, &host_dsa_key);

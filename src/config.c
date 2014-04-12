@@ -20,6 +20,7 @@
 #include <uci_blob.h>
 
 #include "config.h"
+#include "freenetconfd.h"
 
 enum {
 	ADDR,
@@ -115,6 +116,13 @@ int config_load(void)
 
 	if ((c = tb[HOST_RSA_KEY]))
 		config.host_rsa_key = strdup(blobmsg_get_string(c));
+
+	if (!(config.host_rsa_key || config.host_dsa_key)) {
+		ERROR("at least one host key must be set\n");
+		uci_unload(uci, conf);
+		uci_free_context(uci);
+		return -1;
+	}
 
 	if ((c = tb[AUTHORIZED_KEYS_FILE]))
 		config.authorized_keys_file = strdup(blobmsg_get_string(c));
