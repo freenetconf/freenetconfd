@@ -53,7 +53,7 @@ void dm_shutdown()
  *
  * Returns NULL on error or value if found. Must be freed.
  */
-char* dm_get_parameter(char *key)
+static char* dm_get_parameter(char *key)
 {
 	if (!key) return NULL;
 
@@ -87,7 +87,7 @@ exit:
  *
  * Returns zero on success.
  */
-int dm_set_parameter(char *key, char *value)
+static int dm_set_parameter(char *key, char *value)
 {
 	if(!key || !value) return -1;
 
@@ -109,6 +109,7 @@ int dm_set_parameter(char *key, char *value)
 
 exit:
 
+
 	return rc;
 }
 
@@ -118,18 +119,14 @@ exit:
  * Commits pending changes (set_parameter, add object...).
  * Returns zero on success.
  */
-int dm_commit()
+static int dm_commit()
 {
-	int rc = -1;
-
-	if ((rc = rpc_db_commit(ctx, NULL)) != RC_OK) {
+	if ((rpc_db_commit(ctx, NULL)) != RC_OK) {
 		fprintf(stderr, "dmconfig: couldn't commit changes\n");
-		goto exit;
+		return -1;
 	}
 
-exit:
-
-	return rc;
+	return 0;
 }
 
 /*
@@ -141,7 +138,7 @@ exit:
  *
  * Returns instace if found.
  */
-uint16_t dm_get_instance(char *path, char *key, char *value)
+static uint16_t dm_get_instance(char *path, char *key, char *value)
 {
 	int rc = -1;
 	uint16_t instance = 0;
@@ -168,6 +165,50 @@ uint16_t dm_get_instance(char *path, char *key, char *value)
 exit:
 
 	return instance;
+}
+
+/*
+ * dm_add_instance() - add instance to mand
+ *
+ * @char*:	path with instance number (for example "system.ntp.server.1")
+ *
+ * Returns instance id on success, 0 on failure.
+ */
+
+static uint16_t dm_add_instance(char *path)
+{
+	DM2_AVPGRP answer = DM2_AVPGRP_INITIALIZER;
+
+	uint16_t instance = DM_ADD_INSTANCE_AUTO;
+
+	if (rpc_db_addinstance(ctx, path, instance, &answer) == RC_OK &&
+			dm_expect_uint16_type(&answer, AVP_UINT16, VP_TRAVELPING, &instance) == RC_OK)
+	{
+		printf("got instance:%" PRIu16 "\n", instance);
+	}
+	else {
+		fprintf(stderr, "unable to add instance\n");
+		return 0;
+	}
+
+	return instance;
+}
+
+/*
+ * dm_del_instance() - delete instance from mand
+ *
+ * @char*:	path to instance (for example "system.ntp.server.1")
+ * Returns non zero on failure.
+ */
+
+static int dm_del_instance(char *path)
+{
+	DM2_AVPGRP answer = DM2_AVPGRP_INITIALIZER;
+
+	int rc = rpc_db_delinstance(ctx, path, &answer);
+	rc = (rc == RC_OK ? 0 : 1);
+
+	return rc;
 }
 
 /*
@@ -213,6 +254,7 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 	if (ninstance) {
 		char *instance = roxml_get_content(ninstance, NULL, 0, NULL);
 		if (instance) {
+			printf("here:%d\n", __LINE__);
 			int path_len = path ? strlen(path) : 0;
 			int instance_len = strlen(instance);
 			path = realloc(path, path_len + instance_len + 2);
@@ -221,8 +263,35 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 				return -1;
 			}
 
+			printf("here:%d\n", __LINE__);
 			memset(path + path_len, 0, instance_len + 2);
 			strncat(path, instance, instance_len);
+
+			printf("here:%d\n", __LINE__);
+			/* check if we need to delete this instance */
+			node_t *noperation = roxml_get_attr(n, "operation", 0);
+			if (noperation) {
+				char *coperation = roxml_get_content(noperation, NULL, 0, NULL);
+				if (!coperation) {
+					fprintf(stderr, "unable to get operation value\n");
+					return -1;
+				}
+				if (!strcmp(coperation, "delete")) {
+					printf("deleting instance:%s", path);
+					int rc = dm_del_instance(path);
+
+					free(path);
+					path = NULL;
+
+					if (rc) {
+						fprintf(stderr, "problem deleting instace\n");
+						return -1;
+					}
+
+					roxml_del_node(n);
+					return dm_set_parameters_from_xml(root, root);
+				}
+			}
 			strncat(path, ".", 1);
 		}
 	}
@@ -237,15 +306,46 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 		/* save key as attribue on parent */
 		if (name && (!strcmp(name,"name") || !strcmp(name, "ip"))) {
 			instance = dm_get_instance(path, name, val);
-			if (!instance) {
-				fprintf(stderr, "dm_set_parameters_from_xml: unable to get instance, mand bug?\n");
-				/* if this happens it should be mand bug or wrong parsing
-				 * try to workaround */
-				instance = 1;
-			}
 
 			char cinstance[_INT_LEN];
-			snprintf(cinstance, _INT_LEN, "%d", instance);
+			/* save instance for next step if exists */
+			if (instance) {
+				snprintf(cinstance, _INT_LEN, "%d", instance);
+			}
+
+			/* if there is no such instance add one */
+			else {
+				printf("dm_set_parameters_from_xml: no such instance:%s, adding \n", name);
+
+				instance = dm_add_instance(path);;
+				if (!instance) {
+					printf("unable to add instance\n");
+					return -1;
+				}
+
+				printf("added instance:%u\n", instance);
+
+				/* add key to new instance */
+				int path_len = path ? strlen(path) : 0;
+				int key_len = strlen(name);
+				path = realloc(path, path_len + key_len + _INT_LEN + 3); // two '.' and '\0'
+				if (!path) {
+					fprintf(stderr, "dm_set_parameters_from_xml: realloc failed\n");
+					return -1;
+				}
+
+				memset(path + path_len, 0, key_len + _INT_LEN + 3);
+				strncat(path, ".", 1);
+				snprintf(cinstance, _INT_LEN, "%d", instance);
+				strncat(path, cinstance, strlen(cinstance));
+				strncat(path, ".", 1);
+				strncat(path, name, key_len);
+
+				if (dm_set_parameter(path, val)) {
+					fprintf(stderr, "unable to add instance key for:%s, %s\n", path, val);
+					return -1;
+				}
+			}
 
 			node_t *parent = roxml_get_parent(n);
 			if(!parent) {
@@ -255,8 +355,6 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 			roxml_add_node(parent, 0, ROXML_ATTR_NODE, "instance", cinstance);
 		}
 
-		/* remove 'else' for ability of changing 'key' value */
-		/* I don't see that specified in YANG/NCS */
 		else {
 			if (dm_set_parameter(path, val)) {
 				fprintf(stderr, "unable to set parameter:%s", path);
@@ -601,7 +699,7 @@ int dm_set_current_datetime(char *value)
 
 	if (!strcmp(ntp_enabled, "false")) {
 		rc = dm_set_parameter("system-state.clock.current-datetime", value);
-		if (rc) {
+		if (rc || dm_commit()) {
 			rc = -1;
 			goto exit;
 		}

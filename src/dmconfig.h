@@ -23,10 +23,6 @@
 int dm_init();
 void dm_shutdown();
 
-char* dm_get_parameter(char *key);
-int dm_set_parameter(char *key, char *value);
-int dm_commit();
-uint16_t dm_get_instance(char *path, char *key, char *value);
 int dm_set_parameters_from_xml(node_t *root, node_t *n);
 int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out);
 int dm_set_current_datetime(char *value);
