@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <roxml.h>
+#include <unistd.h>
 #include "messages.h"
 #include "xml.h"
 #include "dmconfig.h"
@@ -36,6 +37,9 @@ static int xml_handle_lock(char *message_id, node_t *xml_in, char **xml_out);
 static int xml_handle_unlock(char *message_id, node_t *xml_in, char **xml_out);
 static int xml_handle_close_session(char *message_id, node_t *xml_in, char **xml_out);
 static int xml_handle_kill_session(char *message_id, node_t *xml_in, char **xml_out);
+static int xml_handle_system_restart(char *message_id, node_t *xml_in, char **xml_out);
+static int xml_handle_system_shutdown(char *message_id, node_t *xml_in, char **xml_out);
+static int xml_handle_set_current_datetime(char *message_id, node_t *xml_in, char **xml_out);
 
 struct rpc_method {
 	const char *name;
@@ -55,6 +59,9 @@ const struct rpc_method rpc_methods[] = {
 	{ "unlock", xml_handle_unlock },
 	{ "close-session", xml_handle_close_session },
 	{ "kill-session", xml_handle_kill_session },
+	{ "system-restart", xml_handle_system_restart },
+	{ "system-shutdown", xml_handle_system_shutdown },
+	{ "set-current-datetime", xml_handle_set_current_datetime }
 };
 
 /*
@@ -353,6 +360,92 @@ static int xml_handle_discard_changes(char *message_id, node_t *xml_in, char **x
 
 	node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
 	if (!attr) goto exit;
+
+	roxml_commit_changes(doc_out, NULL, xml_out, 0);
+
+exit:
+	roxml_close(doc_out);
+	return 0;
+}
+
+/* TODO: send reply first */
+static int xml_handle_system_restart(char *message_id, node_t *xml_in, char **xml_out)
+{
+	node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
+	if (!doc_out) goto exit;
+
+	node_t *root = roxml_get_chld(doc_out, NULL, 0);
+	if (!root) goto exit;
+
+	node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+	if (!attr) goto exit;
+
+	roxml_commit_changes(doc_out, NULL, xml_out, 0);
+
+
+exit:
+	roxml_close(doc_out);
+
+	char* const argv[1] = {NULL};
+	execvp("/sbin/reboot", argv);
+	return 0;
+}
+
+static int xml_handle_system_shutdown(char *message_id, node_t *xml_in, char **xml_out)
+{
+	node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
+	if (!doc_out) goto exit;
+
+	node_t *root = roxml_get_chld(doc_out, NULL, 0);
+	if (!root) goto exit;
+
+	node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+	if (!attr) goto exit;
+
+	roxml_commit_changes(doc_out, NULL, xml_out, 0);
+
+	char* const argv[1] = {NULL};
+	execvp("/sbin/poweroff", argv);
+
+exit:
+	roxml_close(doc_out);
+	return 0;
+}
+
+static int xml_handle_set_current_datetime(char *message_id, node_t *xml_in, char **xml_out)
+{
+	char *value = "";
+	node_t *doc_out = NULL;
+
+	int rc = dm_set_current_datetime(value);
+
+	/* ntp is active */
+	if (rc) {
+		doc_out = roxml_load_buf(XML_NETCONF_REPLY_ERROR_TEMPLATE);
+		if (!doc_out) goto exit;
+
+		node_t *root = roxml_get_chld(doc_out, NULL, 0);
+		if (!root) goto exit;
+
+		node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+		if (!attr) goto exit;
+
+		node_t *ntype = roxml_add_node(root, 0, ROXML_ELM_NODE, "error-type", "application");
+		node_t *ntag = roxml_add_node(root, 0, ROXML_ELM_NODE, "error-tag", "operation-failed");
+		node_t *napptag = roxml_add_node(root, 0, ROXML_ELM_NODE, "error-app-tag", "ntp-active");
+		if (!ntype || !ntag || !napptag) goto exit;
+	}
+	/* ok */
+	else {
+		doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
+		if (!doc_out) goto exit;
+
+		node_t *root = roxml_get_chld(doc_out, NULL, 0);
+		if (!root) goto exit;
+
+		node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+		if (!attr) goto exit;
+	}
 
 	roxml_commit_changes(doc_out, NULL, xml_out, 0);
 
