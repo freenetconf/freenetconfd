@@ -14,18 +14,47 @@ struct list_key_t {
 enum LIST_KEY{
 	IP,
 	NAME,
-	LIST_KEY_COUNT
+	__LIST_KEY_COUNT
 };
 
-const struct list_key_t list_keys[LIST_KEY_COUNT] = {
+enum LEAF_LIST_KEY{
+	HIGHER_LAYER_IF,
+	LOWER_LAYER_IF,
+	USER_NAME,
+	SEARCH,
+	USER_AUTHENTICATION_ORDER,
+	BOOTORDER,
+	__LEAF_LIST_KEY_COUNT
+};
+
+const struct list_key_t list_keys[__LIST_KEY_COUNT] = {
 	[IP] = { .key = "ip" },
 	[NAME] = { .key = "name"}
 };
 
+const struct list_key_t leaf_list_keys[__LEAF_LIST_KEY_COUNT] = {
+	[HIGHER_LAYER_IF] = {.key = ""},
+	[LOWER_LAYER_IF] = {.key = ""},
+	[USER_NAME] = {.key = ""},
+	[SEARCH] = {.key = ""},
+	[USER_AUTHENTICATION_ORDER] = {.key = ""},
+	[BOOTORDER] = {.key = ""}
+};
+
+
 static int is_list_key(const char *node_name)
 {
-	for (int i=0; i<LIST_KEY_COUNT; i++)
+	for (int i=0; i<__LIST_KEY_COUNT; i++)
 		if(!strcmp(node_name, list_keys[i].key))
+			return 1;
+
+	return 0;
+}
+
+static int is_leaf_list_key(const char *node_name)
+{
+	for (int i=0; i<__LEAF_LIST_KEY_COUNT; i++)
+		if(!strcmp(node_name, leaf_list_keys[i].key))
 			return 1;
 
 	return 0;
