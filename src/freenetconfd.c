@@ -49,7 +49,7 @@ main(int argc, char **argv)
 
 	rc = dm_init();
 	if (rc) {
-		fprintf(stderr, "mand init failed");
+		fprintf(stderr, "mand init failed\n");
 		return -1;
 	}
 
