@@ -6,6 +6,31 @@
 
 static DMCONTEXT *ctx;
 
+/* Yang structures models */
+struct list_key_t {
+    const char *key;
+};
+
+enum LIST_KEY{
+	IP,
+	NAME,
+	LIST_KEY_COUNT
+};
+
+const struct list_key_t list_keys[LIST_KEY_COUNT] = {
+	[IP] = { .key = "ip" },
+	[NAME] = { .key = "name"}
+};
+
+static int is_list_key(const char *node_name)
+{
+	for (int i=0; i<LIST_KEY_COUNT; i++)
+		if(!strcmp(node_name, list_keys[i].key))
+			return 1;
+
+	return 0;
+}
+
 /*
  * dm_init() - init libev and dmconfig parts
  *
@@ -184,7 +209,7 @@ static uint16_t dm_add_instance(char *path)
 	if (rpc_db_addinstance(ctx, path, instance, &answer) == RC_OK &&
 			dm_expect_uint16_type(&answer, AVP_UINT16, VP_TRAVELPING, &instance) == RC_OK)
 	{
-		printf("got instance:%" PRIu16 "\n", instance);
+		printf("added instance:%" PRIu16 "\n", instance);
 	}
 	else {
 		fprintf(stderr, "unable to add instance\n");
@@ -222,6 +247,8 @@ static int dm_del_instance(char *path)
  * (system.ntp.server...) until we find a value node which we use to set
  * parameter (path we created plus value we got), delete that node and restart
  * from root node.
+ *
+ * <system><ntp><enabled></ntp></system> ... system.ntp=enabled
  */
 
 int dm_set_parameters_from_xml(node_t *root, node_t *n)
@@ -233,113 +260,91 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 
 	char *name = roxml_get_name(n, NULL, 0);
 
-	/* if node exists and it's not a key node (lists) */
-	if (name && strcmp(name, "name") && strcmp(name, "ip")) {
-
-		int path_len = path ? strlen(path) : 0;
-		int name_len = strlen(name);
-		path = realloc(path, path_len + name_len + 2);	/* '.' and '\0' */
-		if (!path) {
-			fprintf(stderr, "dm_set_parameters_from_xml: realloc failed\n");
-			return -1;
-		}
-
-		memset(path + path_len, 0, name_len + 2);
-		strncat(path, name, name_len);
-		strncat(path, ".", 1);
+	/* if node exists and it's not a key node (lists) add node name to path */
+	if (name && !is_list_key(name)) {
+		path = talloc_asprintf_append(path, "%s.", name);
+		if (!path) return -1;
 	}
 
 	/* use attribute instance if we saved one  */
 	node_t *ninstance = roxml_get_attr(n, "instance", 0);
 	if (ninstance) {
 		char *instance = roxml_get_content(ninstance, NULL, 0, NULL);
-		if (instance) {
-			printf("here:%d\n", __LINE__);
-			int path_len = path ? strlen(path) : 0;
-			int instance_len = strlen(instance);
-			path = realloc(path, path_len + instance_len + 2);
-			if (!path) {
-				fprintf(stderr, "dm_set_parameters_from_xml: realloc failed\n");
+		if (!instance) {
+			fprintf(stderr, "unable to get node instance\n");
+			return -1;
+		}
+
+		/* add instance to path: system.ntp.server.1*/
+		path = talloc_asprintf_append(path, "%s", instance);
+		if (!path) return -1;
+
+		/* if we got delete operation delete instance from mand, delete this
+ 	 	 * node from xml and return  */
+		node_t *noperation = roxml_get_attr(n, "operation", 0);
+		if (noperation) {
+			char *coperation = roxml_get_content(noperation, NULL, 0, NULL);
+			if (!coperation) {
+				fprintf(stderr, "unable to get operation value\n");
 				return -1;
 			}
+			if (!strcmp(coperation, "delete")) {
+				printf("deleting instance:%s", path);
+				int rc = dm_del_instance(path);
 
-			printf("here:%d\n", __LINE__);
-			memset(path + path_len, 0, instance_len + 2);
-			strncat(path, instance, instance_len);
+				talloc_free(path);
+				path = NULL;
 
-			printf("here:%d\n", __LINE__);
-			/* check if we need to delete this instance */
-			node_t *noperation = roxml_get_attr(n, "operation", 0);
-			if (noperation) {
-				char *coperation = roxml_get_content(noperation, NULL, 0, NULL);
-				if (!coperation) {
-					fprintf(stderr, "unable to get operation value\n");
+				if (rc) {
+					fprintf(stderr, "problem deleting instace\n");
 					return -1;
 				}
-				if (!strcmp(coperation, "delete")) {
-					printf("deleting instance:%s", path);
-					int rc = dm_del_instance(path);
 
-					free(path);
-					path = NULL;
-
-					if (rc) {
-						fprintf(stderr, "problem deleting instace\n");
-						return -1;
-					}
-
-					roxml_del_node(n);
-					return dm_set_parameters_from_xml(root, root);
-				}
+				roxml_del_node(n);
+				return dm_set_parameters_from_xml(root, root);
 			}
-			strncat(path, ".", 1);
 		}
+
+		/* add '.' after we got instance number, ie:'system.ntp.server.1.' */
+		path = talloc_asprintf_append(path, ".");
+		if (!path) return -1;
 	}
 
-	/* proccess value node and remove it after */
+	/* else if this is value node, set paramater in mand, delete node from xml
+ 	 * and return */
 	char *val = roxml_get_content(n, NULL, 0, NULL);
 	if (val != NULL && strlen(val)) {
 
 		/* remove last '.' */
 		path[strlen(path) -1] = 0;
 
-		/* save key as attribue on parent */
-		if (name && (!strcmp(name,"name") || !strcmp(name, "ip"))) {
+		/* if this is list, save key as attribute, we will use it to set all
+ 	 	 * children parameters this node has in mand */
+		if (name && is_list_key(name)) {
+			char cinstance[_INT_LEN];
+
 			instance = dm_get_instance(path, name, val);
 
-			char cinstance[_INT_LEN];
-			/* save instance for next step if exists */
+			/* if there is such instance we will just add it as attribute on
+ 	 	 	 * parent node */
 			if (instance) {
 				snprintf(cinstance, _INT_LEN, "%d", instance);
 			}
 
-			/* if there is no such instance add one */
+			/* else add new instance to mand first */
 			else {
 				printf("dm_set_parameters_from_xml: no such instance:%s, adding \n", name);
 
-				instance = dm_add_instance(path);;
+				instance = dm_add_instance(path);
 				if (!instance) {
 					printf("unable to add instance\n");
 					return -1;
 				}
-
-				printf("added instance:%u\n", instance);
-
-				/* add key to new instance */
-				int path_len = path ? strlen(path) : 0;
-				int key_len = strlen(name);
-				path = realloc(path, path_len + key_len + _INT_LEN + 3); // two '.' and '\0'
-				if (!path) {
-					fprintf(stderr, "dm_set_parameters_from_xml: realloc failed\n");
-					return -1;
-				}
-
-				memset(path + path_len, 0, key_len + _INT_LEN + 3);
-				strncat(path, ".", 1);
 				snprintf(cinstance, _INT_LEN, "%d", instance);
-				strncat(path, cinstance, strlen(cinstance));
-				strncat(path, ".", 1);
-				strncat(path, name, key_len);
+
+				/* also set key value for new instance */
+				path = talloc_asprintf_append(path, ".%s.%s", cinstance, name);
+				if (!path) return -1;
 
 				if (dm_set_parameter(path, val)) {
 					fprintf(stderr, "unable to add instance key for:%s, %s\n", path, val);
@@ -347,6 +352,7 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 				}
 			}
 
+			/* add instance to parent node */
 			node_t *parent = roxml_get_parent(n);
 			if(!parent) {
 				fprintf(stderr, "dm_set_parameters_from_xml: unable to get parent node\n");
@@ -363,17 +369,17 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 			printf("parameter:%s=\"%s\"\n", path, val);
 		}
 
-		free(path);
+		talloc_free(path);
 		path = NULL;
 
 		roxml_del_node(n);
 		return dm_set_parameters_from_xml(root, root);
 	}
-	/* if no children anymore (all processed) remove this child */
+
+	/* else if no children and no values (all processed) remove this child */
 	node_t *child = roxml_get_chld(n, NULL, 0);
 	if (!child) {
-
-		free(path);
+		talloc_free(path);
 		path = NULL;
 
 		/* xml processed */
@@ -383,6 +389,7 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 
 		return dm_set_parameters_from_xml(root, root);
 	}
+
 	/* process next child */
 	return dm_set_parameters_from_xml(root, child);
 }
