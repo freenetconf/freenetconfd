@@ -197,7 +197,7 @@ xml_handle_get_config(char *message_id, node_t *xml_in, char **xml_out)
 	/* if no filter return all */
 	/* if filter but empty - return nothing */
 	node_t *nfilter = roxml_get_chld(xml_in, "filter", 0);
-	node_t *ns = roxml_get_chld(nfilter, NULL, 0);
+	//node_t *ns = roxml_get_chld(nfilter, NULL, 0);
 
 	dm_get_xml_config(nfilter, nfilter, &data);
 
