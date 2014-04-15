@@ -79,7 +79,7 @@ int dm_init()
 		goto exit;
 	}
 
-	if ((rpc_startsession(ctx, CMD_FLAG_READWRITE, 10, NULL)) != RC_OK) {
+	if ((rpc_startsession(ctx, CMD_FLAG_READWRITE, 0, NULL)) != RC_OK) {
 		fprintf(stderr, "dmconfig: send start session failed\n");
 		goto exit;
 	}
@@ -431,7 +431,7 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
  * @node_t*: XML root which we are creating
  *
  */
-static uint32_t dm_list_to_xml(const char *prefix, DM2_AVPGRP *grp, node_t **xml_out, int elem_node)
+static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node)
 {
 	//printf("prefix:%s\n", prefix);
 
@@ -442,8 +442,7 @@ static uint32_t dm_list_to_xml(const char *prefix, DM2_AVPGRP *grp, node_t **xml
 	void *data;
 	size_t size;
 
-	char *name, *path;
-	uint16_t id;
+	char *name = NULL;
 
 	if ((r = dm_expect_avp(grp, &code, &vendor_id, &data, &size)) != RC_OK)
 		return r;
@@ -454,43 +453,55 @@ static uint32_t dm_list_to_xml(const char *prefix, DM2_AVPGRP *grp, node_t **xml
 	dm_init_avpgrp(grp->ctx, data, size, &container);
 
 	switch (code) {
+	case AVP_INSTANCE: {
+			uint16_t id;
+			if ((r = dm_expect_uint16_type(&container, AVP_NAME, VP_TRAVELPING, &id)) == RC_OK)
+				printf("instance:%d\n", id);
+
+			while (dm_list_to_xml(&container, xml_out, elem_node) == RC_OK);
+			break;
+		}
+
 	case AVP_TABLE:
 	case AVP_OBJECT:
-	case AVP_ELEMENT:
 		if ((r = dm_expect_string_type(&container, AVP_NAME, VP_TRAVELPING, &name)) != RC_OK)
 			return r;
 
-		if (!(path = talloc_asprintf(container.ctx, "%s.%s", prefix, name)))
-			return RC_ERR_ALLOC;
+		printf("element:%s\n", name);
+		printf("node: %s\n", name);
+
+		if (!elem_node++) {
+			while (dm_list_to_xml(&container, xml_out, elem_node) == RC_OK);
+
+			return RC_OK;
+		}
+
+		node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, NULL);
+		if (!n) {
+			fprintf(stderr, "dm_get_xml_config: unable to add parameter node\n");
+			return -1;
+		}
+
+		if(!strcmp(name, "ipv4") || !strcmp(name, "ipv6"))
+			roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns", "urn:ietf:params:xml:ns:yang:ietf-ip");
+
+		while (dm_list_to_xml(&container, &n, elem_node) == RC_OK);
+
 		break;
 
-	case AVP_INSTANCE:
-		if ((r = dm_expect_uint16_type(&container, AVP_NAME, VP_TRAVELPING, &id)) != RC_OK)
+	case AVP_ELEMENT: {
+
+		if ((r = dm_expect_string_type(&container, AVP_NAME, VP_TRAVELPING, &name)) != RC_OK)
 			return r;
 
-		if (!(path = talloc_asprintf(container.ctx, "%s.%d", prefix, id)))
-			return RC_ERR_ALLOC;
-		break;
+		printf("element:%s\n", name);
 
-	default:
-		printf("unknown object: %s, type: %d\n", prefix, code);
-		return RC_ERR_MISC;
-	}
-
-//	printf("path:%s\n", path);
-//	printf("type:%d for name:%s\n", code, name);
-
-	switch (code) {
-	case AVP_ELEMENT: {
 		uint32_t type;
 		char *value = NULL;
-		//printf("%s:", name);
 
 		if ((r = dm_expect_uint32_type(&container, AVP_TYPE, VP_TRAVELPING, &type)) != RC_OK
 		    || (r = dm_expect_avp(&container, &code, &vendor_id, &data, &size)) != RC_OK)
 			return r;
-
-		//printf("------------pathnside:%s:\n", path);
 
 		switch(type) {
 		case AVP_UINT32:
@@ -544,11 +555,7 @@ static uint32_t dm_list_to_xml(const char *prefix, DM2_AVPGRP *grp, node_t **xml
 			printf("unknown type:%d", code);
 		}
 
-		//printf("\n");
-		//printf("name:%s, val:%s\n", name, value);
-
-		//if (!strcmp(name, "timezone-utc-offset")) break;
-
+		printf("name:%s, value:%s\n", name, value);
 		node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, value);
 		if (!n)
 			fprintf(stderr, "dm_get_xml_config: unable to add parameter node\n");
@@ -564,43 +571,6 @@ static uint32_t dm_list_to_xml(const char *prefix, DM2_AVPGRP *grp, node_t **xml
 		free(value);
 		break;
 	}
-
-
-	case AVP_INSTANCE:
-		printf("instance\n");
-		while (dm_list_to_xml(path, &container, xml_out, elem_node) == RC_OK);
-		break;
-
-	case AVP_TABLE:
-	case AVP_OBJECT:
-		printf("node: %s, type:%d\n", name, code);
-
-		// if this is instance node, skip it
-		/*
-		  if (!strcmp(name, "server")) {
-		  while (dm_list_to_xml(path, obj, xml_out, elem_node) == RC_OK);
-		  }
-		  else */
-
-		if (!strcmp(name, "search") || !strcmp(name, "user-authentication-order") || !strcmp(name, "user") || !strcmp(name, "authentication") || !elem_node++) {
-			//node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, "server", NULL);
-			while (dm_list_to_xml(path, &container, xml_out, elem_node) == RC_OK);
-
-			return RC_OK;
-		}
-
-		node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, NULL);
-		if (!n) {
-			fprintf(stderr, "dm_get_xml_config: unable to add parameter node\n");
-			return -1;
-		}
-
-		if(!strcmp(name, "ipv4") || !strcmp(name, "ipv6"))
-			roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns", "urn:ietf:params:xml:ns:yang:ietf-ip");
-
-		while (dm_list_to_xml(path, &container, &n, elem_node) == RC_OK);
-
-		break;
 	}
 
 	return RC_OK;
@@ -688,6 +658,9 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 	printf("list path: %s\n", path);
 	if ((rc = rpc_db_list(ctx, 0, path, &answer)) != RC_OK) {
 		fprintf(stderr, "dmconfig: couldn't get list for path:%s\n", path);
+		free(path);
+		path = NULL;
+
 		goto exit;
 	}
 
@@ -700,7 +673,7 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 		if (!strcmp(name, "system")) roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns",  "urn:ietf:params:xml:ns:yang:ietf-system");
 		if (!strcmp(name, "interfaces")) roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns",  "urn:ietf:params:xml:ns:yang:ietf-interfaces");
 
-		while (dm_list_to_xml(path, &answer, &n, 0) == RC_OK);
+		while (dm_list_to_xml(&answer, &n, 0) == RC_OK);
 	}
 
 	dm_get_xml_config(filter_root, child, xml_out);
