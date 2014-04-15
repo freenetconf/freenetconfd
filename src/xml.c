@@ -40,6 +40,9 @@ static int xml_handle_kill_session(char *message_id, node_t *xml_in, char **xml_
 static int xml_handle_system_restart(char *message_id, node_t *xml_in, char **xml_out);
 static int xml_handle_system_shutdown(char *message_id, node_t *xml_in, char **xml_out);
 static int xml_handle_set_current_datetime(char *message_id, node_t *xml_in, char **xml_out);
+static int xml_handle_firmware_download(char *message_id, node_t *xml_in, char **xml_out);
+static int xml_handle_firmware_commit(char *message_id, node_t *xml_in, char **xml_out);
+static int xml_handle_set_bootorder(char *message_id, node_t *xml_in, char **xml_out);
 
 struct rpc_method {
 	const char *name;
@@ -61,7 +64,10 @@ const struct rpc_method rpc_methods[] = {
 	{ "kill-session", xml_handle_kill_session },
 	{ "system-restart", xml_handle_system_restart },
 	{ "system-shutdown", xml_handle_system_shutdown },
-	{ "set-current-datetime", xml_handle_set_current_datetime }
+	{ "set-current-datetime", xml_handle_set_current_datetime },
+	{ "set-firmware-download", xml_handle_firmware_download },
+	{ "set-firmware-commit", xml_handle_firmware_commit },
+	{ "set-bootorder", xml_handle_set_bootorder }
 };
 
 /*
@@ -368,44 +374,83 @@ exit:
 	return 0;
 }
 
-/* TODO: send reply first */
+/* TODO: make sure reply is sent */
 static int xml_handle_system_restart(char *message_id, node_t *xml_in, char **xml_out)
 {
-	node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
-	if (!doc_out) goto exit;
+	node_t *doc_out = NULL;
 
-	node_t *root = roxml_get_chld(doc_out, NULL, 0);
-	if (!root) goto exit;
+	// async
+	int rc = dm_rpc_restart();
 
-	node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
-	if (!attr) goto exit;
+	if (rc) {
+		doc_out = roxml_load_buf(XML_NETCONF_REPLY_ERROR_TEMPLATE);
+		if (!doc_out) goto exit;
 
-	roxml_commit_changes(doc_out, NULL, xml_out, 0);
+		node_t *root = roxml_get_chld(doc_out, NULL, 0);
+		if (!root) goto exit;
 
+		node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+		if (!attr) goto exit;
+
+		node_t *ntype = roxml_add_node(root, 0, ROXML_ELM_NODE, "error-type", "application");
+		node_t *ntag = roxml_add_node(root, 0, ROXML_ELM_NODE, "error-tag", "operation-failed");
+		if (!ntype || !ntag) goto exit;
+
+	}
+	else {
+		node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
+		if (!doc_out) goto exit;
+
+		node_t *root = roxml_get_chld(doc_out, NULL, 0);
+		if (!root) goto exit;
+
+		node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+		if (!attr) goto exit;
+
+		roxml_commit_changes(doc_out, NULL, xml_out, 0);
+
+	}
 
 exit:
 	roxml_close(doc_out);
 
-	char* const argv[1] = {NULL};
-	execvp("/sbin/reboot", argv);
 	return 0;
 }
 
 static int xml_handle_system_shutdown(char *message_id, node_t *xml_in, char **xml_out)
 {
-	node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
-	if (!doc_out) goto exit;
+	node_t *doc_out = NULL;
 
-	node_t *root = roxml_get_chld(doc_out, NULL, 0);
-	if (!root) goto exit;
+	// async
+	int rc = dm_rpc_shutdown();
 
-	node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
-	if (!attr) goto exit;
+	if (rc) {
+		doc_out = roxml_load_buf(XML_NETCONF_REPLY_ERROR_TEMPLATE);
+		if (!doc_out) goto exit;
 
-	roxml_commit_changes(doc_out, NULL, xml_out, 0);
+		node_t *root = roxml_get_chld(doc_out, NULL, 0);
+		if (!root) goto exit;
 
-	char* const argv[1] = {NULL};
-	execvp("/sbin/poweroff", argv);
+		node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+		if (!attr) goto exit;
+
+		node_t *ntype = roxml_add_node(root, 0, ROXML_ELM_NODE, "error-type", "application");
+		node_t *ntag = roxml_add_node(root, 0, ROXML_ELM_NODE, "error-tag", "operation-failed");
+		if (!ntype || !ntag) goto exit;
+
+	}
+	else {
+		node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
+		if (!doc_out) goto exit;
+
+		node_t *root = roxml_get_chld(doc_out, NULL, 0);
+		if (!root) goto exit;
+
+		node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+		if (!attr) goto exit;
+
+		roxml_commit_changes(doc_out, NULL, xml_out, 0);
+	}
 
 exit:
 	roxml_close(doc_out);
@@ -448,6 +493,127 @@ static int xml_handle_set_current_datetime(char *message_id, node_t *xml_in, cha
 	}
 
 	roxml_commit_changes(doc_out, NULL, xml_out, 0);
+
+exit:
+	roxml_close(doc_out);
+	return 0;
+}
+
+static int
+xml_handle_firmware_download(char *message_id, node_t *xml_in, char **xml_out)
+{
+	node_t *doc_out = NULL;
+
+	int rc = dm_rpc_firmware_download(xml_in);
+
+	if (rc) {
+		doc_out = roxml_load_buf(XML_NETCONF_REPLY_ERROR_TEMPLATE);
+		if (!doc_out) goto exit;
+
+		node_t *root = roxml_get_chld(doc_out, NULL, 0);
+		if (!root) goto exit;
+
+		node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+		if (!attr) goto exit;
+
+		node_t *ntype = roxml_add_node(root, 0, ROXML_ELM_NODE, "error-type", "application");
+		node_t *ntag = roxml_add_node(root, 0, ROXML_ELM_NODE, "error-tag", "operation-failed");
+		if (!ntype || !ntag) goto exit;
+
+	}
+	else {
+		node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
+		if (!doc_out) goto exit;
+
+		node_t *root = roxml_get_chld(doc_out, NULL, 0);
+		if (!root) goto exit;
+
+		node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+		if (!attr) goto exit;
+
+		roxml_commit_changes(doc_out, NULL, xml_out, 0);
+	}
+
+exit:
+	roxml_close(doc_out);
+	return 0;
+}
+
+static int
+xml_handle_firmware_commit(char *message_id, node_t *xml_in, char **xml_out)
+{
+	node_t *doc_out = NULL;
+
+	int job_id = 1;
+	int rc = dm_rpc_firmware_commit(job_id);
+
+	if (rc) {
+		doc_out = roxml_load_buf(XML_NETCONF_REPLY_ERROR_TEMPLATE);
+		if (!doc_out) goto exit;
+
+		node_t *root = roxml_get_chld(doc_out, NULL, 0);
+		if (!root) goto exit;
+
+		node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+		if (!attr) goto exit;
+
+		node_t *ntype = roxml_add_node(root, 0, ROXML_ELM_NODE, "error-type", "application");
+		node_t *ntag = roxml_add_node(root, 0, ROXML_ELM_NODE, "error-tag", "operation-failed");
+		if (!ntype || !ntag) goto exit;
+
+	}
+	else {
+		node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
+		if (!doc_out) goto exit;
+
+		node_t *root = roxml_get_chld(doc_out, NULL, 0);
+		if (!root) goto exit;
+
+		node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+		if (!attr) goto exit;
+
+		roxml_commit_changes(doc_out, NULL, xml_out, 0);
+	}
+
+exit:
+	roxml_close(doc_out);
+	return 0;
+}
+
+static int
+xml_handle_set_bootorder(char *message_id, node_t *xml_in, char **xml_out)
+{
+	node_t *doc_out = NULL;
+
+	int rc = dm_rpc_set_bootorder(xml_in);
+
+	if (rc) {
+		doc_out = roxml_load_buf(XML_NETCONF_REPLY_ERROR_TEMPLATE);
+		if (!doc_out) goto exit;
+
+		node_t *root = roxml_get_chld(doc_out, NULL, 0);
+		if (!root) goto exit;
+
+		node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+		if (!attr) goto exit;
+
+		node_t *ntype = roxml_add_node(root, 0, ROXML_ELM_NODE, "error-type", "application");
+		node_t *ntag = roxml_add_node(root, 0, ROXML_ELM_NODE, "error-tag", "operation-failed");
+		if (!ntype || !ntag) goto exit;
+
+	}
+	else {
+		node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
+		if (!doc_out) goto exit;
+
+		node_t *root = roxml_get_chld(doc_out, NULL, 0);
+		if (!root) goto exit;
+
+		node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+		if (!attr) goto exit;
+
+		roxml_commit_changes(doc_out, NULL, xml_out, 0);
+	}
 
 exit:
 	roxml_close(doc_out);

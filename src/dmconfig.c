@@ -723,3 +723,49 @@ exit:
 	free(ntp_enabled);
 	return rc;
 }
+
+int dm_rpc_restart()
+{
+	int rc = rpc_system_restart_async(ctx);
+	return rc == RC_OK ? 0 : 1;
+}
+
+int dm_rpc_shutdown()
+{
+	int rc = rpc_system_shutdown_async(ctx);
+	return rc == RC_OK ? 0 : 1;
+
+}
+
+int dm_rpc_firmware_download(node_t *node)
+{
+	const char *address = NULL;
+	uint8_t credentialstype = 0;
+	const char *credential = NULL;
+	const char *install_target = NULL;
+	uint32_t timeframe = 0;
+	uint8_t retry_count = 0;
+	uint32_t retry_interval = 1;
+	uint32_t retry_interval_increment = 1;
+	DM2_AVPGRP answer = DM2_AVPGRP_INITIALIZER;
+
+	int rc = rpc_firmware_download(ctx, address, credentialstype, credential,
+                               install_target, timeframe, retry_count,
+                               retry_interval, retry_interval_increment, &answer);
+
+	return rc == RC_OK ? 0 : 1;
+}
+int dm_rpc_firmware_commit(int32_t job_id)
+{
+	int rc = rpc_firmware_commit(ctx, job_id);
+	return rc == RC_OK ? 0 : 1;
+
+}
+
+// https://github.com/travelping/OpenCPE/blob/master/specs/opencpe-firmware-mgmt@2014-02-06.yang
+int dm_rpc_set_bootorder(node_t *node)
+{
+	const char *boot_order = NULL;
+	int rc = rpc_set_boot_order(ctx, boot_order);
+	return rc == RC_OK ? 0 : 1;
+}

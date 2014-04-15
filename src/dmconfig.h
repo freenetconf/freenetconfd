@@ -23,6 +23,12 @@
 int dm_init();
 void dm_shutdown();
 
+int dm_rpc_restart();
+int dm_rpc_shutdown();
+int dm_rpc_set_bootorder(node_t *node);
+int dm_rpc_firmware_download(node_t *node);
+int dm_rpc_firmware_commit(int32_t job_id);
+
 int dm_set_parameters_from_xml(node_t *root, node_t *n);
 int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out);
 int dm_set_current_datetime(char *value);
