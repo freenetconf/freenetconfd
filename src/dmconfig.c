@@ -1,5 +1,5 @@
-#include "dmconfig.h"
 #include <inttypes.h>
+#include "dmconfig.h"
 
 /* max integer length on 64bit system */
 #define _INT_LEN 21
@@ -8,7 +8,7 @@ static DMCONTEXT *ctx;
 
 /* Yang structures models */
 struct list_key_t {
-    const char *key;
+	const char *key;
 };
 
 enum LIST_KEY{
@@ -33,12 +33,12 @@ const struct list_key_t list_keys[__LIST_KEY_COUNT] = {
 };
 
 const struct list_key_t leaf_list_keys[__LEAF_LIST_KEY_COUNT] = {
-	[HIGHER_LAYER_IF] = {.key = ""},
-	[LOWER_LAYER_IF] = {.key = ""},
-	[USER_NAME] = {.key = ""},
-	[SEARCH] = {.key = ""},
-	[USER_AUTHENTICATION_ORDER] = {.key = ""},
-	[BOOTORDER] = {.key = ""}
+	[HIGHER_LAYER_IF] = {.key = "higher-layer-if"},
+	[LOWER_LAYER_IF] = {.key = "lower-layer-if"},
+	[USER_NAME] = {.key = "user-name"},
+	[SEARCH] = {.key = "search"},
+	[USER_AUTHENTICATION_ORDER] = {.key = "user-authentication-order"},
+	[BOOTORDER] = {.key = "bootorder"}
 };
 
 
@@ -124,9 +124,9 @@ static char* dm_get_parameter(char *key)
 		goto exit;
 
 	if (dm_expect_avp(&answer, &code, &vendor_id, &data, &size) != RC_OK
-	    || vendor_id != VP_TRAVELPING
-	    || dm_expect_group_end(&answer) != RC_OK
-	    || dm_decode_unknown_as_string(code, data, size, &rp) != RC_OK)
+		|| vendor_id != VP_TRAVELPING
+		|| dm_expect_group_end(&answer) != RC_OK
+		|| dm_decode_unknown_as_string(code, data, size, &rp) != RC_OK)
 		goto exit;
 
 exit:
@@ -147,7 +147,7 @@ static int dm_set_parameter(char *key, char *value)
 
 	int rc = -1;
 	struct rpc_db_set_path_value set_value = {
-		.path  = key,
+		.path = key,
 		.value = {
 			.code = AVP_UNKNOWN,
 			.vendor_id = VP_TRAVELPING,
@@ -278,6 +278,8 @@ static int dm_del_instance(char *path)
  * from root node.
  *
  * <system><ntp><enabled></ntp></system> ... system.ntp=enabled
+ *
+ * TODO: delete whole node if no more data in it after parsing
  */
 
 int dm_set_parameters_from_xml(node_t *root, node_t *n)
@@ -295,7 +297,7 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 		if (!path) return -1;
 	}
 
-	/* use attribute instance if we saved one  */
+	/* use attribute instance if we saved one */
 	node_t *ninstance = roxml_get_attr(n, "instance", 0);
 	if (ninstance) {
 		char *instance = roxml_get_content(ninstance, NULL, 0, NULL);
@@ -308,8 +310,8 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 		path = talloc_asprintf_append(path, "%s", instance);
 		if (!path) return -1;
 
-		/* if we got delete operation delete instance from mand, delete this
- 	 	 * node from xml and return  */
+		/* if we got delete operation, delete instance from mand, delete this
+		* node from this xml and start again from root */
 		node_t *noperation = roxml_get_attr(n, "operation", 0);
 		if (noperation) {
 			char *coperation = roxml_get_content(noperation, NULL, 0, NULL);
@@ -430,11 +432,11 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
  * @DM2_AVPGRP*: mand request context
  * @node_t*: XML root which we are creating
  *
+ * <system><dns-resolver><server><name>test2</name><udp-and-tcp><port>0</port><address>1.2.3.4</address></udp-and-tcp></server><search>test</search></dns-resolver></system></config></edit-config>
+ * <dns-resolver><search><search>.local</search></search>
  */
-static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node)
+static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node, char *parent_name)
 {
-	//printf("prefix:%s\n", prefix);
-
 	uint32_t r;
 	DM2_AVPGRP container;
 	uint32_t code;
@@ -443,6 +445,8 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node)
 	size_t size;
 
 	char *name = NULL;
+
+	static int is_leaf = 0;
 
 	if ((r = dm_expect_avp(grp, &code, &vendor_id, &data, &size)) != RC_OK)
 		return r;
@@ -453,28 +457,41 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node)
 	dm_init_avpgrp(grp->ctx, data, size, &container);
 
 	switch (code) {
-	case AVP_INSTANCE: {
-			uint16_t id;
-			if ((r = dm_expect_uint16_type(&container, AVP_NAME, VP_TRAVELPING, &id)) == RC_OK)
-				printf("instance:%d\n", id);
 
-			while (dm_list_to_xml(&container, xml_out, elem_node) == RC_OK);
-			break;
+	/* has children instances */
+	case AVP_TABLE:
+		if ((r = dm_expect_string_type(&container, AVP_NAME, VP_TRAVELPING, &name)) != RC_OK) {
+			fprintf(stderr, "invalid object\n");
+			return r;
 		}
 
-	case AVP_TABLE:
+		/* test if leaf list */
+		is_leaf = is_leaf_list_key(name) ? 1 : 0;
+
+		/* save node name for instances */
+		parent_name = name;
+
+		/* process all children */
+		while (dm_list_to_xml(&container, xml_out, elem_node, parent_name) == RC_OK);
+
+		break;
+
+	/* has children */
 	case AVP_OBJECT:
-		if ((r = dm_expect_string_type(&container, AVP_NAME, VP_TRAVELPING, &name)) != RC_OK)
-			return r;
 
-		printf("element:%s\n", name);
-		printf("node: %s\n", name);
-
+		/* skip first node */
 		if (!elem_node++) {
-			while (dm_list_to_xml(&container, xml_out, elem_node) == RC_OK);
+			while (dm_list_to_xml(&container, xml_out, elem_node, NULL) == RC_OK);
 
 			return RC_OK;
 		}
+
+		if ((r = dm_expect_string_type(&container, AVP_NAME, VP_TRAVELPING, &name)) != RC_OK) {
+			fprintf(stderr, "invalid object\n");
+			return r;
+		}
+
+		printf("object:%s\n", name);
 
 		node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, NULL);
 		if (!n) {
@@ -485,14 +502,46 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node)
 		if(!strcmp(name, "ipv4") || !strcmp(name, "ipv6"))
 			roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns", "urn:ietf:params:xml:ns:yang:ietf-ip");
 
-		while (dm_list_to_xml(&container, &n, elem_node) == RC_OK);
+		/* process all children */
+		while (dm_list_to_xml(&container, &n, elem_node, parent_name) == RC_OK);
 
 		break;
 
+	/* is one of cildren instances */
+	case AVP_INSTANCE: {
+			uint16_t id;
+			if ((r = dm_expect_uint16_type(&container, AVP_NAME, VP_TRAVELPING, &id)) != RC_OK) {
+				fprintf(stderr, "invalid instance \n");
+				return r;
+			}
+
+			/* mand workaround: if this is leaf list skip parent tag */
+			if (is_leaf || !parent_name) {
+				while (dm_list_to_xml(&container, xml_out, elem_node, NULL) == RC_OK);
+				is_leaf = 0;
+				break;
+			}
+
+			/* else normal list */
+			printf("instance:%d, parent:%s\n", id, parent_name);
+
+			node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, parent_name, NULL);
+			if (!n) {
+				fprintf(stderr, "dm_get_xml_config: unable to add parameter node\n");
+				return -1;
+			}
+
+			while (dm_list_to_xml(&container, &n, elem_node, parent_name) == RC_OK);
+
+			break;
+		}
+	/* is one children element */
 	case AVP_ELEMENT: {
 
-		if ((r = dm_expect_string_type(&container, AVP_NAME, VP_TRAVELPING, &name)) != RC_OK)
+		if ((r = dm_expect_string_type(&container, AVP_NAME, VP_TRAVELPING, &name)) != RC_OK) {
+			fprintf(stderr, "invalid element\n");
 			return r;
+		}
 
 		printf("element:%s\n", name);
 
@@ -500,7 +549,7 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node)
 		char *value = NULL;
 
 		if ((r = dm_expect_uint32_type(&container, AVP_TYPE, VP_TRAVELPING, &type)) != RC_OK
-		    || (r = dm_expect_avp(&container, &code, &vendor_id, &data, &size)) != RC_OK)
+			|| (r = dm_expect_avp(&container, &code, &vendor_id, &data, &size)) != RC_OK)
 			return r;
 
 		switch(type) {
@@ -540,7 +589,7 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node)
 			char buf[INET6_ADDRSTRLEN];
 			int af;
 			union {
-				struct in_addr  in;
+				struct in_addr in;
 				struct in6_addr in6;
 			} addr;
 
@@ -550,12 +599,18 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node)
 			}
 			break;
 		}
+	 	 case AVP_BINARY: {
+			alue = malloc(((size + 3) * 4) / 3);
+			dm_to64(data, size, value);
+
+			break;
+		}
 
 		default:
 			printf("unknown type:%d", code);
 		}
 
-		printf("name:%s, value:%s\n", name, value);
+		printf("value:%s\n", value);
 		node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, value);
 		if (!n)
 			fprintf(stderr, "dm_get_xml_config: unable to add parameter node\n");
@@ -670,10 +725,10 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 		printf("name:%s\n", name);
 
 		node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, NULL);
-		if (!strcmp(name, "system")) roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns",  "urn:ietf:params:xml:ns:yang:ietf-system");
-		if (!strcmp(name, "interfaces")) roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns",  "urn:ietf:params:xml:ns:yang:ietf-interfaces");
+		if (!strcmp(name, "system")) roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns", "urn:ietf:params:xml:ns:yang:ietf-system");
+		if (!strcmp(name, "interfaces")) roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns", "urn:ietf:params:xml:ns:yang:ietf-interfaces");
 
-		while (dm_list_to_xml(&answer, &n, 0) == RC_OK);
+		while (dm_list_to_xml(&answer, &n, 0, NULL) == RC_OK);
 	}
 
 	dm_get_xml_config(filter_root, child, xml_out);
@@ -750,8 +805,8 @@ int dm_rpc_firmware_download(node_t *node)
 	DM2_AVPGRP answer = DM2_AVPGRP_INITIALIZER;
 
 	int rc = rpc_firmware_download(ctx, address, credentialstype, credential,
-                               install_target, timeframe, retry_count,
-                               retry_interval, retry_interval_increment, &answer);
+									install_target, timeframe, retry_count,
+									retry_interval, retry_interval_increment, &answer);
 
 	return rc == RC_OK ? 0 : 1;
 }
@@ -766,6 +821,6 @@ int dm_rpc_firmware_commit(int32_t job_id)
 int dm_rpc_set_bootorder(node_t *node)
 {
 	const char *boot_order = NULL;
-	int rc = rpc_set_boot_order(ctx, boot_order);
+	int rc = rpc_set_boot_order(ctx, 1, &boot_order);
 	return rc == RC_OK ? 0 : 1;
 }

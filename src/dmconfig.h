@@ -15,7 +15,6 @@
 
 #ifndef __DMCONFIG_H__
 #define __DMCONFIG_H__
-#include <libdmconfig/dmmsg.h>
 #include <libdmconfig/dmconfig.h>
 #include <libdmconfig/dm_dmconfig_rpc_stub.h>
 #include <roxml.h>
