@@ -18,6 +18,7 @@
 #include <libdmconfig/dmconfig.h>
 #include <libdmconfig/dm_dmconfig_rpc_stub.h>
 #include <roxml.h>
+#include <mand/binary.h>
 
 int dm_init();
 void dm_shutdown();

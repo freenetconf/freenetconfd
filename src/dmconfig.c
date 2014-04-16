@@ -599,8 +599,9 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 			}
 			break;
 		}
-	 	 case AVP_BINARY: {
-			alue = malloc(((size + 3) * 4) / 3);
+
+		case AVP_BINARY: {
+			value = malloc(((size + 3) * 4) / 3);
 			dm_to64(data, size, value);
 
 			break;
