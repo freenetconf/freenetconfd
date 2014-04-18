@@ -837,11 +837,9 @@ int dm_rpc_firmware_commit(int32_t job_id)
 
 }
 
-// https://github.com/travelping/OpenCPE/blob/master/specs/opencpe-firmware-mgmt@2014-02-06.yang
-int dm_rpc_set_bootorder(node_t *node)
+int dm_rpc_set_bootorder(const char **boot_order, int count)
 {
-	const char *boot_order = NULL;
-	int rc = rpc_set_boot_order(ctx, 1, &boot_order);
+	int rc = rpc_set_boot_order(ctx, count, boot_order);
 	return rc == RC_OK ? 0 : 1;
 }
 

@@ -25,7 +25,7 @@ void dm_shutdown();
 
 int dm_rpc_restart();
 int dm_rpc_shutdown();
-int dm_rpc_set_bootorder(node_t *node);
+int dm_rpc_set_bootorder(const char **boot_order, int num_nodes);
 int dm_rpc_firmware_download(node_t *node);
 int dm_rpc_firmware_commit(int32_t job_id);
 

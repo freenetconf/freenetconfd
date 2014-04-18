@@ -588,8 +588,27 @@ static int
 xml_handle_set_bootorder(char *message_id, node_t *xml_in, char **xml_out)
 {
 	node_t *doc_out = NULL;
+	char **cnodes;
+	int num_nodes = 0;
 
-	int rc = dm_rpc_set_bootorder(xml_in);
+	node_t **nodes = roxml_xpath(xml_in, "//bootorder", &num_nodes);
+	if (!num_nodes) {
+		fprintf(stderr, "no bootorder nodes found\n");
+		goto exit;
+	}
+
+	cnodes = malloc(num_nodes);
+	if (!cnodes) {
+		fprintf(stderr, "unable to allocate nodes for bootorder\n");
+		goto exit;
+	}
+
+	for (int i=0; i<num_nodes; i++) {
+		cnodes[i] = roxml_get_content(nodes[i], NULL, 0, NULL);
+		printf("node value is :%s\n", cnodes[i]);
+	}
+
+	int rc = dm_rpc_set_bootorder((const char **) cnodes, num_nodes);
 
 	if (rc) {
 		doc_out = roxml_load_buf(XML_NETCONF_REPLY_ERROR_TEMPLATE);
@@ -620,6 +639,7 @@ xml_handle_set_bootorder(char *message_id, node_t *xml_in, char **xml_out)
 	}
 
 exit:
+
 	roxml_close(doc_out);
 	return 0;
 }
