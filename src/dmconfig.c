@@ -1,4 +1,5 @@
 #include <inttypes.h>
+#include <time.h>
 #include "dmconfig.h"
 
 /* max integer length on 64bit system */
@@ -118,7 +119,7 @@ static char* dm_get_parameter(char *key)
 	size_t size;
 	char *rp = NULL;
 
-	printf("GET DB: %s\n", key);
+	printf("get_parameter: %s\n", key);
 
 	if (rpc_db_get(ctx, 1, (const char **)&key, &answer) != RC_OK)
 		goto exit;
@@ -748,8 +749,23 @@ exit:
  */
 int dm_set_current_datetime(char *value)
 {
+	if (!value) return -1;
+
+	printf("got date:%s\n", value);
+
 	int rc = -1;
 	char *ntp_enabled = NULL;
+
+	struct tm tm;
+	time_t t;
+	if ( strptime(value, "%FT%T%z", &tm) == NULL ) {
+		fprintf(stderr, "unable to convert time value\n");
+		goto exit;
+	}
+
+	t = mktime(&tm);
+
+	printf("got timestamp :%ld\n", (long) t);
 
 	ntp_enabled = dm_get_parameter("system.ntp.enabled");
 	if (!ntp_enabled) {
@@ -757,14 +773,17 @@ int dm_set_current_datetime(char *value)
 		goto exit;
 	}
 
-	if (!strcmp(ntp_enabled, "true")) {
+	printf("ntp state:%s\n", ntp_enabled);
+
+	if (!strcmp(ntp_enabled, "1")) {
 		rc = 1;
 		goto exit;
 	}
 
-	if (!strcmp(ntp_enabled, "false")) {
+	if (!strcmp(ntp_enabled, "0")) {
 		rc = dm_set_parameter("system-state.clock.current-datetime", value);
-		if (rc || dm_commit()) {
+		if (rc) {
+			fprintf(stderr, "unable to set current datetime\n");
 			rc = -1;
 			goto exit;
 		}
@@ -825,3 +844,4 @@ int dm_rpc_set_bootorder(node_t *node)
 	int rc = rpc_set_boot_order(ctx, 1, &boot_order);
 	return rc == RC_OK ? 0 : 1;
 }
+

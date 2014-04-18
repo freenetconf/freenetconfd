@@ -459,8 +459,11 @@ exit:
 
 static int xml_handle_set_current_datetime(char *message_id, node_t *xml_in, char **xml_out)
 {
-	char *value = "";
+	char *value = NULL;
 	node_t *doc_out = NULL;
+
+	node_t *n_current_datetime = roxml_get_chld(xml_in, "current-datetime", 0);
+	value = roxml_get_content(n_current_datetime, NULL, 0, NULL);
 
 	int rc = dm_set_current_datetime(value);
 
@@ -495,6 +498,7 @@ static int xml_handle_set_current_datetime(char *message_id, node_t *xml_in, cha
 	roxml_commit_changes(doc_out, NULL, xml_out, 0);
 
 exit:
+	free(value);
 	roxml_close(doc_out);
 	return 0;
 }
