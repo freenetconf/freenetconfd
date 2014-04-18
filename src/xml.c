@@ -65,8 +65,8 @@ const struct rpc_method rpc_methods[] = {
 	{ "system-restart", xml_handle_system_restart },
 	{ "system-shutdown", xml_handle_system_shutdown },
 	{ "set-current-datetime", xml_handle_set_current_datetime },
-	{ "set-firmware-download", xml_handle_firmware_download },
-	{ "set-firmware-commit", xml_handle_firmware_commit },
+	{ "firmware-download", xml_handle_firmware_download },
+	{ "firmware-commit", xml_handle_firmware_commit },
 	{ "set-bootorder", xml_handle_set_bootorder }
 };
 
@@ -507,10 +507,102 @@ static int
 xml_handle_firmware_download(char *message_id, node_t *xml_in, char **xml_out)
 {
 	node_t *doc_out = NULL;
+	node_t *n = NULL;
+	char *address = NULL;
+	char *install_target = NULL;
+	char *credential = NULL;
+	uint8_t credentialstype = 0;
+	uint32_t timeframe = 0;
+	uint8_t retry_count = 0;
+	uint32_t retry_interval = 1;
+	uint32_t retry_interval_increment = 1;
+	char *convert;
 
-	int rc = dm_rpc_firmware_download(xml_in);
+	n = roxml_get_chld(xml_in, "address", 0);
+	address = roxml_get_content(n, NULL, 0, NULL);
+	if (!address) {
+		fprintf(stderr, "unable to get address value\n");
+		goto exit;
+	}
 
-	if (rc) {
+	n = roxml_get_chld(xml_in, "install-target", 0);
+	install_target = roxml_get_content(n, NULL, 0, NULL);
+	if (!install_target) {
+		fprintf(stderr, "unable to get install-target value\n");
+		goto exit;
+	}
+
+	n = roxml_get_chld(xml_in, "password", 0);
+	if (n) {
+		/* yes, there are two password nodes */
+		n = roxml_get_chld(n, "password", 0);
+		credential = roxml_get_content(n, NULL, 0, NULL);
+		if (!credential) {
+			fprintf(stderr, "unable to get credential value\n");
+			goto exit;
+		}
+		credentialstype = 1;
+	}
+
+	n = roxml_get_chld(xml_in, "ssh-key", 0);
+	if (n) {
+		n = roxml_get_chld(n, "path", 0);
+		credential = roxml_get_content(n, NULL, 0, NULL);
+		if (!credential) {
+			fprintf(stderr, "unable to get credential value\n");
+			goto exit;
+		}
+		credentialstype = 2;
+	}
+
+	n = roxml_get_chld(xml_in, "certificate", 0);
+	if (n) {
+		n = roxml_get_chld(n, "path", 0);
+		credential = roxml_get_content(n, NULL, 0, NULL);
+		if (!credential) {
+			fprintf(stderr, "unable to get credential value\n");
+			goto exit;
+		}
+		credentialstype = 3;
+	}
+
+	n = roxml_get_chld(xml_in, "timeframe", 0);
+	char *ctimeframe = roxml_get_content(n, NULL, 0, NULL);
+	timeframe = strtoul(ctimeframe, &convert, 10);
+	if (timeframe == 0 && *convert != '\0') {
+		fprintf(stderr, "unable to get timeframe value\n");
+		goto exit;
+	}
+
+	n = roxml_get_chld(xml_in, "retry-count", 0);
+	char *cretry_count = roxml_get_content(n, NULL, 0, NULL);
+	retry_count = strtoul(cretry_count, &convert, 10);
+	if (retry_count == 0 && *convert != '\0') {
+		fprintf(stderr, "unable to get retry count value\n");
+		goto exit;
+	}
+
+	n = roxml_get_chld(xml_in, "retry-interval", 0);
+	char *cretry_interval = roxml_get_content(n, NULL, 0, NULL);
+	retry_interval = strtoul(cretry_interval, &convert, 10);
+	if (retry_interval == 0 && *convert != '\0') {
+		fprintf(stderr, "unable to get retry count value\n");
+		goto exit;
+	}
+
+	n = roxml_get_chld(xml_in, "retry-interval-increment", 0);
+	char *cretry_interval_increment = roxml_get_content(n, NULL, 0, NULL);
+	retry_interval_increment = strtoul(cretry_interval_increment, &convert, 10);
+	if (retry_interval_increment == 0 && *convert != '\0') {
+		fprintf(stderr, "unable to get retry count value\n");
+		goto exit;
+	}
+
+	char *res = dm_rpc_firmware_download(address, install_target, credential,
+										credentialstype, timeframe, retry_count,
+										retry_interval,retry_interval_increment);
+
+	if (!res) {
 		doc_out = roxml_load_buf(XML_NETCONF_REPLY_ERROR_TEMPLATE);
 		if (!doc_out) goto exit;
 
@@ -526,13 +618,19 @@ xml_handle_firmware_download(char *message_id, node_t *xml_in, char **xml_out)
 
 	}
 	else {
-		node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
+		node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_TEMPLATE);
 		if (!doc_out) goto exit;
 
 		node_t *root = roxml_get_chld(doc_out, NULL, 0);
 		if (!root) goto exit;
 
 		node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
+		if (!attr) goto exit;
+
+		node_t *job_id = roxml_add_node(root, 0, ROXML_ELM_NODE, "job-id", res);
+		if (!job_id) goto exit;
+
+		attr = roxml_add_node(job_id, 0, ROXML_ATTR_NODE, "xmlns", "urn:opencpe:firmware-mgmt");
 		if (!attr) goto exit;
 
 		roxml_commit_changes(doc_out, NULL, xml_out, 0);
@@ -547,8 +645,18 @@ static int
 xml_handle_firmware_commit(char *message_id, node_t *xml_in, char **xml_out)
 {
 	node_t *doc_out = NULL;
+	char *convert = NULL;
+	node_t *n_job_id =  NULL;
+	char *c_job_id = NULL;
+	int job_id = 0;
 
-	int job_id = 1;
+	n_job_id = roxml_get_chld(xml_in, "job-id", 0);
+	c_job_id = roxml_get_content(n_job_id, NULL, 0, NULL);
+	job_id = strtoul(c_job_id, &convert, 10);
+	if (job_id == 0 && *convert != '\0') {
+		fprintf(stderr, "unable to get job_id value\n");
+		goto exit;
+	}
 	int rc = dm_rpc_firmware_commit(job_id);
 
 	if (rc) {

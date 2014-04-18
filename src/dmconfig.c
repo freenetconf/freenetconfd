@@ -812,23 +812,40 @@ int dm_rpc_shutdown()
 
 }
 
-int dm_rpc_firmware_download(node_t *node)
+char* dm_rpc_firmware_download(char *address, char *install_target,
+								char *credential, uint8_t credentialstype,
+								uint32_t timeframe, uint8_t retry_count,
+								uint32_t retry_interval, uint32_t retry_interval_increment)
 {
-	const char *address = NULL;
-	uint8_t credentialstype = 0;
-	const char *credential = NULL;
-	const char *install_target = NULL;
-	uint32_t timeframe = 0;
-	uint8_t retry_count = 0;
-	uint32_t retry_interval = 1;
-	uint32_t retry_interval_increment = 1;
+	int rc;
 	DM2_AVPGRP answer = DM2_AVPGRP_INITIALIZER;
 
-	int rc = rpc_firmware_download(ctx, address, credentialstype, credential,
+	return "1"; // mand RPC API is not yet implemented
+
+	rc = rpc_firmware_download(ctx, address, credentialstype, credential,
 									install_target, timeframe, retry_count,
 									retry_interval, retry_interval_increment, &answer);
+	if (rc) {
+		fprintf(stderr, "mand firmware download error\n");
+		return NULL;
+	}
 
-	return rc == RC_OK ? 0 : 1;
+	uint32_t code, vendor_id;
+	void *data;
+	size_t size;
+	char *rp = NULL;
+
+	rc = dm_expect_avp(&answer, &code, &vendor_id, &data, &size) != RC_OK
+		|| vendor_id != VP_TRAVELPING
+		|| dm_expect_group_end(&answer) != RC_OK
+		|| dm_decode_unknown_as_string(code, data, size, &rp) != RC_OK;
+	if (rc) {
+		fprintf(stderr, "mand firmware download unable to get result\n");
+		return NULL;
+	}
+
+	return rp;
+
 }
 int dm_rpc_firmware_commit(int32_t job_id)
 {
@@ -842,4 +859,3 @@ int dm_rpc_set_bootorder(const char **boot_order, int count)
 	int rc = rpc_set_boot_order(ctx, count, boot_order);
 	return rc == RC_OK ? 0 : 1;
 }
-
