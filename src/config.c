@@ -121,6 +121,7 @@ int config_load()
 
 	if ((c = tb[AUTHORIZED_KEYS_FILE]))
 	rc = asprintf(&config.authorized_keys_file, "%s", blobmsg_get_string(c));
+	if (rc < 0) goto exit;
 
 	if ((c = tb[SSH_TIMEOUT_SOCKET]))
 		config.ssh_timeout_socket = blobmsg_get_u32(c);
@@ -133,6 +134,7 @@ int config_load()
 
 	if (config.ssh_pcap_enable && !(c = tb[SSH_PCAP_FILE])) goto exit;
 	rc = asprintf(&config.ssh_pcap_file, "%s", blobmsg_get_string(c));
+	if (rc < 0) goto exit;
 
 	if((c = tb[LOG_LEVEL]))
 		config.log_level = blobmsg_get_u32(c);
