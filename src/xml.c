@@ -205,7 +205,7 @@ xml_handle_get_config(char *message_id, node_t *xml_in, char **xml_out)
 	node_t *nfilter = roxml_get_chld(xml_in, "filter", 0);
 	//node_t *ns = roxml_get_chld(nfilter, NULL, 0);
 
-	dm_get_xml_config(nfilter, nfilter, &data);
+	dm_get_xml_config(nfilter, nfilter, &data, NULL);
 
 	rc = roxml_commit_changes(doc_out, NULL, xml_out, 0);
 	if (rc) rc = 0;
