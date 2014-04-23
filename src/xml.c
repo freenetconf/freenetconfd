@@ -379,7 +379,6 @@ static int xml_handle_system_restart(char *message_id, node_t *xml_in, char **xm
 {
 	node_t *doc_out = NULL;
 
-	// async
 	int rc = dm_rpc_restart();
 
 	if (rc) {
@@ -421,7 +420,6 @@ static int xml_handle_system_shutdown(char *message_id, node_t *xml_in, char **x
 {
 	node_t *doc_out = NULL;
 
-	// async
 	int rc = dm_rpc_shutdown();
 
 	if (rc) {

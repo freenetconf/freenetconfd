@@ -863,13 +863,13 @@ exit:
 
 int dm_rpc_restart()
 {
-	int rc = rpc_system_restart_async(ctx);
+	int rc = rpc_system_restart(ctx);
 	return rc == RC_OK ? 0 : 1;
 }
 
 int dm_rpc_shutdown()
 {
-	int rc = rpc_system_shutdown_async(ctx);
+	int rc = rpc_system_shutdown(ctx);
 	return rc == RC_OK ? 0 : 1;
 
 }
