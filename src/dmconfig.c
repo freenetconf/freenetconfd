@@ -971,7 +971,6 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 	if (s) {
 		printf("got sibling:%s\n", roxml_get_name(s, NULL, 0));
 		rc = dm_get_xml_config(filter_root, s, xml_out, current_path);
-		talloc_free(current_path); current_path = NULL;
 		return rc;
 	}
 
