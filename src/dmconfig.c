@@ -485,8 +485,6 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 
 	char *name = NULL;
 
-	static int is_leaf = 0;
-
 	if ((r = dm_expect_avp(grp, &code, &vendor_id, &data, &size)) != RC_OK)
 		return r;
 
@@ -494,8 +492,24 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 
 	switch (code) {
 
-	case AVP_ARRAY:
+	case AVP_ARRAY: {
 			printf("AVP_ARRAY\n");
+
+			uint32_t type;
+			if ((r = dm_expect_string_type(&container, AVP_NAME, VP_TRAVELPING, &name)) != RC_OK
+    			|| (r = dm_expect_uint32_type(&container, AVP_TYPE, VP_TRAVELPING, &type)) != RC_OK)
+			return r;
+
+			while (dm_expect_group_end(&container) != RC_OK) {
+				char *value = NULL;
+				if ((r = dm_expect_avp(&container, &code, &vendor_id, &data, &size)) != RC_OK
+					|| (r = dm_decode_unknown_as_string(code, data, size, &value)) != RC_OK)
+					return r;
+
+				roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, value);
+				free(value);
+			}
+		}
 	break;
 
 	case AVP_NAME:
@@ -510,9 +524,6 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 			return r;
 		}
 
-		/* test if leaf list */
-		is_leaf = is_leaf_list_key(name) ? 1 : 0;
-
 		/* save node name for instances */
 		parent_name = name;
 
@@ -526,7 +537,8 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 			printf("AVP_OBJECT\n");
 
 		/* skip first node */
-		if (!elem_node++) {
+		if (!elem_node) {
+			++elem_node;
 			while (dm_list_to_xml(&container, xml_out, elem_node, NULL) == RC_OK);
 
 			return RC_OK;
@@ -562,14 +574,6 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 				return r;
 			}
 
-			/* mand workaround: if this is leaf list skip parent tag */
-			if (is_leaf || !parent_name) {
-				while (dm_list_to_xml(&container, xml_out, elem_node, NULL) == RC_OK);
-				is_leaf = 0;
-				break;
-			}
-
-			/* else normal list */
 			printf("instance:%d, parent:%s\n", id, parent_name);
 
 			node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, parent_name, NULL);
@@ -637,6 +641,7 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
  * @DM2_AVPGRP*: mand request context
  * @node_t*: XML root which we are creating
  *
+ * TODO: merge with dm_list_to_xml
  */
 static uint32_t dm_list_to_xml_filter(DM2_AVPGRP *grp, node_t **xml_out, int elem_node, char *parent_name, char *filter)
 {
@@ -648,7 +653,6 @@ static uint32_t dm_list_to_xml_filter(DM2_AVPGRP *grp, node_t **xml_out, int ele
 	size_t size;
 
 	char *name = NULL;
-	static int is_leaf = 0;
 
 	if ((r = dm_expect_avp(grp, &code, &vendor_id, &data, &size)) != RC_OK)
 		return r;
@@ -657,8 +661,25 @@ static uint32_t dm_list_to_xml_filter(DM2_AVPGRP *grp, node_t **xml_out, int ele
 
 	switch (code) {
 
-	case AVP_ARRAY:
+	case AVP_ARRAY: {
 			printf("AVP_ARRAY\n");
+
+			uint32_t type;
+			if ((r = dm_expect_string_type(&container, AVP_NAME, VP_TRAVELPING, &name)) != RC_OK
+    			|| (r = dm_expect_uint32_type(&container, AVP_TYPE, VP_TRAVELPING, &type)) != RC_OK)
+			return r;
+
+			while (dm_expect_group_end(&container) != RC_OK) {
+				char *value = NULL;
+				if ((r = dm_expect_avp(&container, &code, &vendor_id, &data, &size)) != RC_OK
+					|| (r = dm_decode_unknown_as_string(code, data, size, &value)) != RC_OK)
+					return r;
+
+				roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, value);
+				free(value);
+			}
+		}
+	break;
 
 	case AVP_NAME:
 			printf("AVP_NAME\n");
@@ -673,9 +694,6 @@ static uint32_t dm_list_to_xml_filter(DM2_AVPGRP *grp, node_t **xml_out, int ele
 
 		printf("table name:%s\n", name);
 
-		/* test if leaf list */
-		is_leaf = is_leaf_list_key(name) ? 1 : 0;
-
 		/* save node name for instances */
 		parent_name = name;
 
@@ -688,7 +706,8 @@ static uint32_t dm_list_to_xml_filter(DM2_AVPGRP *grp, node_t **xml_out, int ele
 	case AVP_OBJECT:
 
 		/* skip first node */
-		if (!elem_node++) {
+		if (!elem_node) {
+			++elem_node;
 			while (dm_list_to_xml_filter(&container, xml_out, elem_node, NULL, filter) == RC_OK);
 
 			return RC_OK;
@@ -723,14 +742,6 @@ static uint32_t dm_list_to_xml_filter(DM2_AVPGRP *grp, node_t **xml_out, int ele
 				return r;
 			}
 
-			/* mand workaround: if this is leaf list skip parent tag */
-			if (is_leaf || !parent_name) {
-				while (dm_list_to_xml_filter(&container, xml_out, elem_node, NULL, filter) == RC_OK);
-				is_leaf = 0;
-				break;
-			}
-
-			/* else normal list */
 			printf("instance:%d, parent:%s\n", id, parent_name);
 
 			node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, parent_name, NULL);
@@ -743,6 +754,7 @@ static uint32_t dm_list_to_xml_filter(DM2_AVPGRP *grp, node_t **xml_out, int ele
 
 			break;
 		}
+
 	/* is one children element */
 	case AVP_ELEMENT: {
 				uint32_t type;
@@ -959,6 +971,7 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 	if (s) {
 		printf("got sibling:%s\n", roxml_get_name(s, NULL, 0));
 		rc = dm_get_xml_config(filter_root, s, xml_out, current_path);
+		talloc_free(current_path); current_path = NULL;
 		return rc;
 	}
 
