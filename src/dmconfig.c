@@ -474,7 +474,7 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
  * @node_t*: XML root which we are creating
  *
  */
-static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node, char *parent_name)
+static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node, char *parent_name, char *filter)
 {
 	uint32_t r;
 	DM2_AVPGRP container;
@@ -528,7 +528,7 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 		parent_name = name;
 
 		/* process all children */
-		while (dm_list_to_xml(&container, xml_out, elem_node, parent_name) == RC_OK);
+		while (dm_list_to_xml(&container, xml_out, elem_node, parent_name, filter) == RC_OK);
 
 		break;
 
@@ -539,7 +539,7 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 		/* skip first node */
 		if (!elem_node) {
 			++elem_node;
-			while (dm_list_to_xml(&container, xml_out, elem_node, NULL) == RC_OK);
+			while (dm_list_to_xml(&container, xml_out, elem_node, NULL, filter) == RC_OK);
 
 			return RC_OK;
 		}
@@ -561,7 +561,7 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 			roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns", "urn:ietf:params:xml:ns:yang:ietf-ip");
 
 		/* process all children */
-		while (dm_list_to_xml(&container, &n, elem_node, parent_name) == RC_OK);
+		while (dm_list_to_xml(&container, &n, elem_node, parent_name, filter) == RC_OK);
 
 		break;
 
@@ -582,7 +582,7 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 				return -1;
 			}
 
-			while (dm_list_to_xml(&container, &n, elem_node, parent_name) == RC_OK);
+			while (dm_list_to_xml(&container, &n, elem_node, parent_name, filter) == RC_OK);
 
 			break;
 		}
@@ -625,180 +625,9 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 		}
 
 		free(value);
-		break;
-		}
 
-		default: fprintf(stderr, "unknown code for type:%d\n", code);
-	}
-
-	return RC_OK;
-}
-
-/*
- * dm_list_to_xm_filterl() - recursive function which creates XML from mand list
- *
- * @char*: path prefix which is created (system.ntp.)
- * @DM2_AVPGRP*: mand request context
- * @node_t*: XML root which we are creating
- *
- * TODO: merge with dm_list_to_xml
- */
-static uint32_t dm_list_to_xml_filter(DM2_AVPGRP *grp, node_t **xml_out, int elem_node, char *parent_name, char *filter)
-{
-	uint32_t r;
-	DM2_AVPGRP container;
-	uint32_t code;
-	uint32_t vendor_id;
-	void *data;
-	size_t size;
-
-	char *name = NULL;
-
-	if ((r = dm_expect_avp(grp, &code, &vendor_id, &data, &size)) != RC_OK)
-		return r;
-
-	dm_init_avpgrp(grp->ctx, data, size, &container);
-
-	switch (code) {
-
-	case AVP_ARRAY: {
-			printf("AVP_ARRAY\n");
-
-			uint32_t type;
-			if ((r = dm_expect_string_type(&container, AVP_NAME, VP_TRAVELPING, &name)) != RC_OK
-    			|| (r = dm_expect_uint32_type(&container, AVP_TYPE, VP_TRAVELPING, &type)) != RC_OK)
-			return r;
-
-			while (dm_expect_group_end(&container) != RC_OK) {
-				char *value = NULL;
-				if ((r = dm_expect_avp(&container, &code, &vendor_id, &data, &size)) != RC_OK
-					|| (r = dm_decode_unknown_as_string(code, data, size, &value)) != RC_OK)
-					return r;
-
-				roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, value);
-				free(value);
-			}
-		}
-	break;
-
-	case AVP_NAME:
-			printf("AVP_NAME\n");
-		break;
-
-	/* has children instances */
-	case AVP_TABLE:
-		if ((r = dm_expect_string_type(&container, AVP_NAME, VP_TRAVELPING, &name)) != RC_OK) {
-			fprintf(stderr, "invalid object\n");
-			return r;
-		}
-
-		printf("table name:%s\n", name);
-
-		/* save node name for instances */
-		parent_name = name;
-
-		/* process all children */
-		while (dm_list_to_xml_filter(&container, xml_out, elem_node, parent_name, filter) == RC_OK);
-
-		break;
-
-	/* has children */
-	case AVP_OBJECT:
-
-		/* skip first node */
-		if (!elem_node) {
-			++elem_node;
-			while (dm_list_to_xml_filter(&container, xml_out, elem_node, NULL, filter) == RC_OK);
-
-			return RC_OK;
-		}
-
-		if ((r = dm_expect_string_type(&container, AVP_NAME, VP_TRAVELPING, &name)) != RC_OK) {
-			fprintf(stderr, "invalid object\n");
-			return r;
-		}
-
-		printf("object name:%s\n", name);
-
-		node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, NULL);
-		if (!n) {
-			fprintf(stderr, "dm_get_xml_config: unable to add parameter node\n");
+		if(filter && !strcmp(name, filter))
 			return -1;
-		}
-
-		if(!strcmp(name, "ipv4") || !strcmp(name, "ipv6"))
-			roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns", "urn:ietf:params:xml:ns:yang:ietf-ip");
-
-		/* process all children */
-		while (dm_list_to_xml_filter(&container, &n, elem_node, parent_name, filter) == RC_OK);
-
-		break;
-
-	/* is one of cildren instances */
-	case AVP_INSTANCE: {
-			uint16_t id;
-			if ((r = dm_expect_uint16_type(&container, AVP_NAME, VP_TRAVELPING, &id)) != RC_OK) {
-				fprintf(stderr, "invalid instance \n");
-				return r;
-			}
-
-			printf("instance:%d, parent:%s\n", id, parent_name);
-
-			node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, parent_name, NULL);
-			if (!n) {
-				fprintf(stderr, "dm_get_xml_config: unable to add parameter node\n");
-				return -1;
-			}
-
-			while (dm_list_to_xml_filter(&container, &n, elem_node, parent_name, filter) == RC_OK);
-
-			break;
-		}
-
-	/* is one children element */
-	case AVP_ELEMENT: {
-				uint32_t type;
-				char *value = NULL;
-				int len = 0;
-				node_t *n = NULL;
-
-				if ((r = dm_expect_string_type(&container, AVP_NAME, VP_TRAVELPING, &name)) != RC_OK
-					|| (r = dm_expect_uint32_type(&container, AVP_TYPE, VP_TRAVELPING, &type)) != RC_OK
-					|| (r = dm_expect_avp(&container, &code, &vendor_id, &data, &size)) != RC_OK){
-					return r;
-				}
-
-				printf("element:%s\n", name);
-				printf("filter:%s\n", name);
-
-
-				if ((r = dm_decode_unknown_as_string(code, data, size, &value)) != RC_OK) {
-					fprintf(stderr, "unable to decode value from mand\n");
-					return r;
-				}
-
-				if(!strcmp(name, filter)) {
-
-					if (!strcmp(name, "type"))
-						len = asprintf(&value, "%s:%s", "ianaift", value);
-					if (len < 0) {
-						fprintf(stderr, "dm_get_xml_config: unable to add value type\n");
-						return -1;
-					}
-
-					//printf("value:%s\n", value);
-					n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, value);
-					if (!n)
-						fprintf(stderr, "dm_get_xml_config: unable to add parameter node\n");
-					else {
-						if (!strcmp(name, "type"))
-							roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns:ianaift", "urn:ietf:params:xml:ns:yang:iana-if-type");
-					}
-
-
-					return -1;
-				}
-				free(value);
 
 		break;
 		}
@@ -809,15 +638,6 @@ static uint32_t dm_list_to_xml_filter(DM2_AVPGRP *grp, node_t **xml_out, int ele
 	return RC_OK;
 }
 
-/* <get-config<filter></filter></get-config>
- * <get-config<filter><system></system><interfaces></interfaces></filter></get-config></rpc>
- * <get><filter><system><clock><timezone-location/><timezone-utc-offset/></clock></system></filter></get></rpc>
- * <get><filter><system><contact></contact><hostname/><location/></system></filter></get></rpc>
- * <get><filter><system><location></location></system></filter></get></rpc>
- * <get><filter><system><location></location><contact/><hostname/></system></filter></get></rpc>
- * <get><filter><system><contact></contact></system></filter></get></rpc>
- * <get><filter><system><ntp></ntp></system></filter></get></rpc>
- */
 
 int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out, char *path)
 {
@@ -900,7 +720,7 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 					fprintf(stderr, "unable to get list from mand\n");
 					return -1;
 				}
-				while (dm_list_to_xml(&a, xml_out, 1, NULL) == RC_OK);
+				while (dm_list_to_xml(&a, xml_out, 1, NULL, NULL) == RC_OK);
 			}
 			else
 				roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, n, v);
@@ -958,11 +778,11 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 				roxml_del_node(next_node);
 				next_node = temp;
 
-				while (dm_list_to_xml_filter(&answer, &next_node, 0, NULL, node_name) == RC_OK);
+				while (dm_list_to_xml(&answer, &next_node, 0, NULL, node_name) == RC_OK);
 			}
 
 			/* got list, add to response */
-			else while (dm_list_to_xml(&answer, &next_node, 0, NULL) == RC_OK);
+			else while (dm_list_to_xml(&answer, &next_node, 0, NULL, NULL) == RC_OK);
 		break;
 	}
 
