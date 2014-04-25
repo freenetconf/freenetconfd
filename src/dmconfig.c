@@ -145,13 +145,13 @@ void dm_shutdown()
  *
  * Returns NULL on error or value if found. Must be freed.
  */
-static char* dm_get_parameter(char *key)
+static char* dm_get_parameter(char *key, uint32_t *code)
 {
 	if (!key) return NULL;
 
 	DM2_AVPGRP answer = DM2_AVPGRP_INITIALIZER;
 
-	uint32_t code, vendor_id;
+	uint32_t vendor_id;
 	void *data;
 	size_t size;
 	char *rp = NULL;
@@ -161,10 +161,10 @@ static char* dm_get_parameter(char *key)
 	if (rpc_db_get(ctx, 1, (const char **)&key, &answer) != RC_OK)
 		goto exit;
 
-	if (dm_expect_avp(&answer, &code, &vendor_id, &data, &size) != RC_OK
+	if (dm_expect_avp(&answer, code, &vendor_id, &data, &size) != RC_OK
 		|| vendor_id != VP_TRAVELPING
 		|| dm_expect_group_end(&answer) != RC_OK
-		|| dm_decode_unknown_as_string(code, data, size, &rp) != RC_OK)
+		|| dm_decode_unknown_as_string(*code, data, size, &rp) != RC_OK)
 		goto exit;
 
 exit:
@@ -338,6 +338,7 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 		if (!path) return -1;
 	}
 
+	/* lists */
 	/* use attribute instance if we saved one */
 	node_t *ninstance = roxml_get_attr(n, "instance", 0);
 	if (ninstance) {
@@ -493,12 +494,17 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 
 	switch (code) {
 
+	case AVP_ARRAY:
+			printf("AVP_ARRAY\n");
+	break;
+
 	case AVP_NAME:
 			printf("AVP_NAME\n");
 		break;
 
 	/* has children instances */
 	case AVP_TABLE:
+			printf("AVP_TABLE\n");
 		if ((r = dm_expect_string_type(&container, AVP_NAME, VP_TRAVELPING, &name)) != RC_OK) {
 			fprintf(stderr, "invalid object\n");
 			return r;
@@ -517,6 +523,7 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 
 	/* has children */
 	case AVP_OBJECT:
+			printf("AVP_OBJECT\n");
 
 		/* skip first node */
 		if (!elem_node++) {
@@ -548,6 +555,7 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 
 	/* is one of cildren instances */
 	case AVP_INSTANCE: {
+			printf("AVP_INSTANCE\n");
 			uint16_t id;
 			if ((r = dm_expect_uint16_type(&container, AVP_NAME, VP_TRAVELPING, &id)) != RC_OK) {
 				fprintf(stderr, "invalid instance \n");
@@ -577,6 +585,7 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 	/* is one children element */
 	case AVP_ELEMENT: {
 
+		printf("AVP_ELEMENT\n");
 		uint32_t type;
 		char *value = NULL;
 		int len = 0;
@@ -647,6 +656,9 @@ static uint32_t dm_list_to_xml_filter(DM2_AVPGRP *grp, node_t **xml_out, int ele
 	dm_init_avpgrp(grp->ctx, data, size, &container);
 
 	switch (code) {
+
+	case AVP_ARRAY:
+			printf("AVP_ARRAY\n");
 
 	case AVP_NAME:
 			printf("AVP_NAME\n");
@@ -844,26 +856,46 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 	char *node_content = roxml_get_content(filter_node, NULL, 0, NULL);
 	if (node_content && strlen(node_content)) {
 		printf("content match node:%s\n", node_content);
+
 		int instance = dm_get_instance(path, node_name, node_content);
 		path = talloc_asprintf_append(path, ".%d", instance);
+
 		printf("path is now:%s\n", path);
 
 		node_t *s = filter_node;
 		while ((s = roxml_get_next_sibling(s))) {
-			char request[100] = {0};
 			char *n = roxml_get_name(s, NULL, 0);
-			snprintf(request, 100, "%s.%s", path, n);
-			char *v = dm_get_parameter(request);
+			if(!n) {
+				fprintf(stderr, "unable to get node name\n");
+				return -1;
+			}
 
-			/* TODO: list all of them */
-			if(strchr(v, '<')) v = NULL;
+			int req_size = strlen(path) + strlen(n) + 2;
+			char request[req_size];
+
+			snprintf(request, req_size, "%s.%s", path, n);
+			printf("request:%s\n", request);
+			uint32_t code;
+			char *v = dm_get_parameter(request, &code);
 
 			printf("match got name:%s - val:%s\n", n, v);
 
-			roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, n, v);
+			printf("code is :%d\n", code);
+			if(v && (code == AVP_ARRAY || code == AVP_TABLE || code == AVP_OBJECT || code == AVP_INSTANCE || code == AVP_TYPE)) {
+				printf("table element\n");
+				DM2_AVPGRP a = DM2_AVPGRP_INITIALIZER;
+				if (rpc_db_list(ctx, 0, request, &a) != RC_OK) {
+					fprintf(stderr, "unable to get list from mand\n");
+					return -1;
+				}
+				while (dm_list_to_xml(&a, xml_out, 1, NULL) == RC_OK);
+			}
+			else
+				roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, n, v);
 		};
 
 		printf("all done\n");
+		talloc_free(path);
 		return 0;
 	}
 
@@ -886,7 +918,8 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 	/* what type of data did we got from mand */
 	switch (code) {
 		case AVP_ELEMENT: {
-				char *param_value = dm_get_parameter(path);
+				uint32_t code;
+				char *param_value = dm_get_parameter(path, &code);
 				/* emtpy value is allowed */
 
 				printf("got parameter back:%s\n", param_value);
@@ -959,7 +992,8 @@ int dm_set_current_datetime(char *value)
 
 	printf("got timestamp :%ld\n", (long) t);
 
-	ntp_enabled = dm_get_parameter("system.ntp.enabled");
+	uint32_t code;
+	ntp_enabled = dm_get_parameter("system.ntp.enabled", &code);
 	if (!ntp_enabled) {
 		fprintf(stderr, "unable to get system ntp state\n");
 		goto exit;
