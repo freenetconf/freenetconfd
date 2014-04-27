@@ -20,10 +20,8 @@
 #include "messages.h"
 #include "xml.h"
 #include "dmconfig.h"
+#include "freenetconfd.h"
 
-#ifndef ARRAY_SIZE
-#define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
-#endif
 
 static int xml_handle_get(char *message_id, node_t *xml_in, char **xml_out);
 static int xml_handle_get_config(char *message_id, node_t *xml_in, char **xml_out);

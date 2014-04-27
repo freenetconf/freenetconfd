@@ -16,4 +16,8 @@
 #ifndef __FREENETCONFD_H__
 #define __FREENETCONFD_H__
 
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
+#endif
+
 #endif /* __FREENETCONFD_H__ */
