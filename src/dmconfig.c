@@ -1,89 +1,51 @@
 #include <inttypes.h>
 #include <time.h>
 #include "dmconfig.h"
+#include "freenetconfd.h"
 
 /* max integer length on 64bit system */
 #define _INT_LEN 21
 
+/* netconf operations */
+#define NETCONF_OP_NA 0
+#define NETCONF_OP_DEL 1
+#define NETCONF_OP_ADD 2
+
 static DMCONTEXT *ctx;
 
-/* Yang structures models */
-struct list_key_t {
-	const char *key;
+char *list_keys[] = {
+	"ip",
+	"name"
 };
-
-enum LIST_KEY{
-	IP,
-	NAME,
-	__LIST_KEY_COUNT
+char *list_nodes[] = {
+	"address", "firmware-job",
+	"firmware-slot", "group",
+	"interface", "neighbor",
+	"rule", "rule-list",
+	"server", "ssh-key",
+	"user"
 };
-
-enum LEAF_LIST_KEY{
-	HIGHER_LAYER_IF,
-	LOWER_LAYER_IF,
-	USER_NAME,
-	SEARCH,
-	USER_AUTHENTICATION_ORDER,
-	BOOTORDER,
-	__LEAF_LIST_KEY_COUNT
-};
-
-enum LIST_NODE{
-	ADDRESS,
-	FIRMWARE_JOB,
-	FIRMWARE_SLOT,
-	GROUP,
-	INTERFACE,
-	NEIGHBOR,
-	RULE,
-	RULE_LIST,
-	SERVER,
-	SSH_KEY,
-	USER,
-	__LIST_NODE_COUNT
-};
-
-const struct list_key_t list_keys[__LIST_KEY_COUNT] = {
-	[IP] = { .key = "ip" },
-	[NAME] = { .key = "name"}
-};
-
-const struct list_key_t leaf_list_keys[__LEAF_LIST_KEY_COUNT] = {
-	[HIGHER_LAYER_IF] = {.key = "higher-layer-if"},
-	[LOWER_LAYER_IF] = {.key = "lower-layer-if"},
-	[USER_NAME] = {.key = "user-name"},
-	[SEARCH] = {.key = "search"},
-	[USER_AUTHENTICATION_ORDER] = {.key = "user-authentication-order"},
-	[BOOTORDER] = {.key = "bootorder"}
-};
-
-const struct list_key_t list_nodes[__LIST_NODE_COUNT] = {
-	[ADDRESS] = {.key = "address"},
-	[FIRMWARE_JOB] = {.key = "firmware-job"},
-	[FIRMWARE_SLOT] = {.key = "firmware-slot"},
-	[GROUP] = {.key = "group"},
-	[INTERFACE] = {.key = "interface"},
-	[NEIGHBOR] = {.key = "neighbor"},
-	[RULE] = {.key = "rule"},
-	[RULE_LIST] = {.key = "rule-list"},
-	[SERVER] = {.key = "server"},
-	[SSH_KEY] = {.key = "ssh-key"},
-	[USER] = {.key = "user"}
+char *leaf_list_nodes[] = {
+	"higher-layer-if", "lower-layer-if",
+	"user-name", "search",
+	"user-authentication-order", "bootorder"
 };
 
 static int is_list_key(const char *node_name)
 {
-	for (int i=0; i<__LIST_KEY_COUNT; i++)
-		if(!strcmp(node_name, list_keys[i].key))
+
+	for( int i=0, len = ARRAY_SIZE(list_keys); i < len; i++)
+		if(!strcmp(node_name, list_keys[i]))
 			return 1;
 
 	return 0;
 }
 
-static int is_leaf_list_key(const char *node_name)
+static int is_leaf_list_node(const char *node_name)
 {
-	for (int i=0; i<__LEAF_LIST_KEY_COUNT; i++)
-		if(!strcmp(node_name, leaf_list_keys[i].key))
+
+	for( int i=0, len = ARRAY_SIZE(leaf_list_nodes); i < len; i++)
+		if(!strcmp(node_name, leaf_list_nodes[i]))
 			return 1;
 
 	return 0;
@@ -91,11 +53,55 @@ static int is_leaf_list_key(const char *node_name)
 
 static int is_list_node(const char *node_name)
 {
-	for (int i=0; i<__LIST_NODE_COUNT; i++)
-		if(!strcmp(node_name, list_nodes[i].key))
+	for( int i=0, len = ARRAY_SIZE(list_nodes); i < len; i++)
+		if(!strcmp(node_name, list_nodes[i]))
 			return 1;
 
 	return 0;
+}
+
+static char* astrcat(char **d, const char *s)
+{
+	if (!s) return NULL;
+
+	const size_t d_len = *d ? strlen(*d) : 0;
+	const size_t s_len = strlen(s);
+
+	*d = realloc(*d, d_len + s_len + 1);
+	memcpy(*d + d_len, s, s_len + 1);
+
+	return *d;
+}
+
+static void roxml_del_curr(node_t **node)
+{
+	node_t *t = roxml_get_parent(*node);
+	roxml_del_node(*node);
+	*node = t;
+}
+
+static void yang_del_prefix(char **s)
+{
+	char *prefixes[] = {"sys:", "ianaift:"};
+	for( int i=0, len = ARRAY_SIZE(prefixes); i < len; i++)
+		if (strstr(*s, prefixes[i]))
+			memmove(*s, *s + strlen(prefixes[i]), strlen(*s));
+}
+
+static int netconf_operation(node_t *s)
+{
+	node_t *noperation = roxml_get_attr(s, "operation", 0);
+	char *coperation = roxml_get_content(noperation, NULL, 0, NULL);
+	if(!coperation)
+		return NETCONF_OP_NA;
+
+	if (!strcmp(coperation, "delete"))
+		return NETCONF_OP_DEL;
+
+	if (!strcmp(coperation, "create"))
+		return NETCONF_OP_ADD;
+
+	return NETCONF_OP_NA;
 }
 
 /*
@@ -182,6 +188,8 @@ exit:
 static int dm_set_parameter(char *key, char *value)
 {
 	if(!key || !value) return -1;
+
+	yang_del_prefix(&value);
 
 	int rc = -1;
 	struct rpc_db_set_path_value set_value = {
@@ -307,6 +315,69 @@ static int dm_del_instance(char *path)
 }
 
 /*
+ * dm_set_array() - add/set array in mand
+ *
+ *
+ *
+ */
+
+static int dm_set_array(char *path, char *value)
+{
+	int rc = -1;
+
+	struct rpc_db_set_path_value set_array = {
+		.path  = path,
+		.value = {
+			.code = AVP_ARRAY,
+			.vendor_id = VP_TRAVELPING,
+		},
+	};
+	struct rpc_db_set_path_value *array;
+
+	int cnt = value ? 1 : 0;
+	for (char *s = value; *s; s++)
+		if (*s == ',')
+			cnt++;
+
+	printf("elements:%d\n", cnt);
+
+	if (!(array = calloc(cnt, sizeof(struct rpc_db_set_path_value))))
+		return rc;
+
+	set_array.value.data = array;
+	set_array.value.size = cnt;
+
+	char *saveptr;
+	char *s = strtok_r(value, ",", &saveptr);
+	for (int i = 0; i < cnt && s; i++) {
+		yang_del_prefix(&s);
+		printf("array[%d]=%s\n", i, s);
+
+		array[i].value.code = AVP_UNKNOWN;
+		array[i].value.vendor_id = VP_TRAVELPING;
+		array[i].value.data = s;
+		array[i].value.size = strlen(s);
+
+		s = strtok_r(NULL, ",", &saveptr);
+	}
+
+	DM2_AVPGRP answer = DM2_AVPGRP_INITIALIZER;
+	if ((rc = rpc_db_set(ctx, 1, &set_array, &answer)) != RC_OK) {
+		printf("set array failed \n");
+		goto exit;
+	}
+
+	printf("set array succeded\n");
+
+	rc = 0;
+
+exit:
+
+	free(array);
+	return rc;
+}
+
+/*
  * dm_set_parameters_from_xml() - recursive function to parse xml parameters
  *
  * @node_t:	xml node that we have to process
@@ -331,11 +402,46 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 	static uint16_t instance = 0;
 
 	char *name = roxml_get_name(n, NULL, 0);
+	if (!name) {
+		fprintf(stderr, "unable to get node name\n");
+		talloc_free(path); path = NULL;
+		return -1;
+	}
 
 	/* if node exists and it's not a key node (lists) add node name to path */
-	if (name && !is_list_key(name)) {
+	if (!is_list_key(name)) {
 		path = talloc_asprintf_append(path, "%s.", name);
 		if (!path) return -1;
+	}
+
+	/* leaf lists */
+	if (is_leaf_list_node(name)) {
+		printf("leaf list this one\n");
+		path[strlen(path) -1] = 0;
+		char *leafs = NULL;
+		node_t *s = n;
+		do {
+			if (leafs) astrcat(&leafs, ",");
+
+			if (netconf_operation(s) == NETCONF_OP_DEL)
+				continue;
+
+			char *value = roxml_get_content(s, NULL, 0, NULL);
+			astrcat(&leafs, value);
+
+			printf("leaf value:%s\n", value);
+		}
+		while ((s = roxml_get_next_sibling(s)));
+
+		printf("path:%s, leafs:%s\n", path, leafs);
+		//if (leafs) dm_set_parameter(path, leafs); //also works
+		dm_set_array(path, leafs);
+
+		roxml_del_node(roxml_get_parent(n));
+
+		talloc_free(path); path = NULL;
+
+		return dm_set_parameters_from_xml(root, root);
 	}
 
 	/* lists */
@@ -355,16 +461,8 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 
 		/* if we got delete operation, delete instance from mand, delete this
 		* node from this xml and start again from root */
-		node_t *noperation = roxml_get_attr(n, "operation", 0);
-		if (noperation) {
-			char *coperation = roxml_get_content(noperation, NULL, 0, NULL);
-			if (!coperation) {
-				fprintf(stderr, "unable to get operation value\n");
-				talloc_free(path); path = NULL;
-				return -1;
-			}
-			if (!strcmp(coperation, "delete")) {
-				printf("deleting instance:%s", path);
+		if (netconf_operation(n) == NETCONF_OP_DEL) {
+				printf("deleting instance:%s\n", path);
 				int rc = dm_del_instance(path);
 
 				talloc_free(path); path = NULL;
@@ -376,7 +474,6 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 
 				roxml_del_node(n);
 				return dm_set_parameters_from_xml(root, root);
-			}
 		}
 
 		/* add '.' after we got instance number, ie:'system.ntp.server.1.' */
@@ -384,7 +481,8 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 		if (!path) return -1;
 	}
 
-	/* else if this is value node, set paramater in mand, delete node from xml
+	/* values */
+	/* if this is value node, set paramater in mand, delete node from xml
  	 * and return */
 	char *val = roxml_get_content(n, NULL, 0, NULL);
 	if (val != NULL && strlen(val)) {
@@ -394,7 +492,7 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 
 		/* if this is list, save key as attribute, we will use it to set all
  	 	 * children parameters this node has in mand */
-		if (name && is_list_key(name)) {
+		if (is_list_key(name)) {
 			char cinstance[_INT_LEN];
 
 			instance = dm_get_instance(path, name, val);
@@ -645,6 +743,7 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 
 	if (!filter_root || !filter_node) {
 		printf("invalid filter or node\n");
+		return rc;
 	}
 
 	node_t *next_node = *xml_out;
@@ -674,7 +773,6 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 			roxml_add_node(next_node, 0, ROXML_ATTR_NODE, "xmlns", attr_type);
 	}
 
-	//printf("name:%s\n", node_name);
 	printf("path:%s\n", path);
 
 	/* we are always looking for the last child node for getting data */
@@ -696,17 +794,30 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 
 		node_t *s = filter_node;
 		while ((s = roxml_get_next_sibling(s))) {
+
 			char *n = roxml_get_name(s, NULL, 0);
 			if(!n) {
 				fprintf(stderr, "unable to get node name\n");
 				return -1;
 			}
 
-			int req_size = strlen(path) + strlen(n) + 2;
+			node_t *c = roxml_get_chld(s, NULL, 0);
+			if(c) {
+				printf("this node:%s has child\n",n);
+				char *p = talloc_asprintf_append(path, ".%s", n);
+				next_node = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, n, NULL);
+				if(!strcmp(n, "ipv4") || !strcmp(n, "ipv6"))
+					roxml_add_node(next_node, 0, ROXML_ATTR_NODE, "xmlns", "urn:ietf:params:xml:ns:yang:ietf-ip");
+				dm_get_xml_config(filter_root, c, &next_node, p);
+				continue;
+			}
+
+			int req_size = strlen(path) + strlen(n) + 200;
 			char request[req_size];
 
 			snprintf(request, req_size, "%s.%s", path, n);
 			printf("request:%s\n", request);
+
 			uint32_t code;
 			char *v = dm_get_parameter(request, &code);
 
@@ -727,9 +838,9 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 		};
 
 		printf("all done\n");
-		talloc_free(path);
 		return 0;
 	}
+
 
 	/* get paramater/list from mand */
 	DM2_AVPGRP answer = DM2_AVPGRP_INITIALIZER;
@@ -764,6 +875,9 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 			}
 		break;
 
+		case AVP_ARRAY:
+				roxml_del_curr(&next_node);
+
 		case AVP_INSTANCE:
 		case AVP_OBJECT:
 		case AVP_TABLE:
@@ -774,9 +888,7 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 			if (is_key) {
 				printf("key match node:%s\n", node_name);
 
-				node_t *temp = roxml_get_parent(next_node);
-				roxml_del_node(next_node);
-				next_node = temp;
+				roxml_del_curr(&next_node);
 
 				while (dm_list_to_xml(&answer, &next_node, 0, NULL, node_name) == RC_OK);
 			}
@@ -917,3 +1029,4 @@ int dm_rpc_set_bootorder(const char **boot_order, int count)
 	int rc = rpc_set_boot_order(ctx, count, boot_order);
 	return rc == RC_OK ? 0 : 1;
 }
+
