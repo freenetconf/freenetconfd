@@ -142,6 +142,7 @@ void dm_shutdown()
 	rpc_endsession(ctx);
 	dm_context_shutdown(ctx, DMCONFIG_OK);
 	dm_context_release(ctx);
+	ev_loop_destroy(EV_DEFAULT);
 }
 
 /*
@@ -174,6 +175,7 @@ static char* dm_get_parameter(char *key, uint32_t *code)
 		goto exit;
 
 exit:
+	dm_release_avpgrp(&answer);
 	return rp;
 }
 
@@ -267,6 +269,7 @@ static uint16_t dm_get_instance(char *path, char *key, char *value)
 
 exit:
 
+	dm_release_avpgrp(&answer);
 	return instance;
 }
 
@@ -281,7 +284,6 @@ exit:
 static uint16_t dm_add_instance(char *path)
 {
 	DM2_AVPGRP answer = DM2_AVPGRP_INITIALIZER;
-
 	uint16_t instance = DM_ADD_INSTANCE_AUTO;
 
 	if (rpc_db_addinstance(ctx, path, instance, &answer) == RC_OK &&
@@ -291,8 +293,10 @@ static uint16_t dm_add_instance(char *path)
 	}
 	else {
 		fprintf(stderr, "unable to add instance\n");
-		return 0;
+		instance = 0;
 	}
+
+	dm_release_avpgrp(&answer);
 
 	return instance;
 }
@@ -311,6 +315,7 @@ static int dm_del_instance(char *path)
 	int rc = rpc_db_delinstance(ctx, path, &answer);
 	rc = (rc == RC_OK ? 0 : 1);
 
+	dm_release_avpgrp(&answer);
 	return rc;
 }
 
@@ -373,6 +378,7 @@ static int dm_set_array(char *path, char *value)
 
 exit:
 
+	dm_release_avpgrp(&answer);
 	free(array);
 	return rc;
 }
@@ -829,12 +835,16 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 				DM2_AVPGRP a = DM2_AVPGRP_INITIALIZER;
 				if (rpc_db_list(ctx, 0, request, &a) != RC_OK) {
 					fprintf(stderr, "unable to get list from mand\n");
+					dm_release_avpgrp(&a);
 					return -1;
 				}
 				while (dm_list_to_xml(&a, xml_out, 1, NULL, NULL) == RC_OK);
+				dm_release_avpgrp(&a);
 			}
-			else
+			else {
 				roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, n, v);
+			}
+			free(v);
 		};
 
 		printf("all done\n");
@@ -846,6 +856,7 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 	DM2_AVPGRP answer = DM2_AVPGRP_INITIALIZER;
 	if ((rc = rpc_db_list(ctx, 0, path, &answer)) != RC_OK) {
 		fprintf(stderr, "dmconfig: couldn't get list for path:%s\n", path);
+		dm_release_avpgrp(&answer);
 		talloc_free(path); path = NULL;
 		return -1;
 	}
@@ -854,6 +865,7 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 	rc = dm_expect_avp(&answer, &code, &vendor_id, &data, &size);
 	if (rc != RC_OK) {
 		fprintf(stderr, "unable to get type from mand\n");
+		dm_release_avpgrp(&answer);
 		talloc_free(path); path = NULL;
 		return -1;
 	}
@@ -867,8 +879,10 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 
 				printf("got parameter back:%s\n", param_value);
 				node_t *node_value = roxml_add_node(next_node, 0, ROXML_TXT_NODE, NULL, param_value);
+				free(param_value);
 				if (!node_value) {
 					fprintf(stderr, "unable to set node value\n");
+					dm_release_avpgrp(&answer);
 					talloc_free(path); path = NULL;
 					return -1;
 				}
@@ -897,6 +911,8 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 			else while (dm_list_to_xml(&answer, &next_node, 0, NULL, NULL) == RC_OK);
 		break;
 	}
+
+	dm_release_avpgrp(&answer);
 
 	/* move to the next node */
 	node_t *s = roxml_get_next_sibling(filter_node);
@@ -1009,9 +1025,10 @@ char* dm_rpc_firmware_download(char *address, char *install_target,
 		|| dm_decode_unknown_as_string(code, data, size, &rp) != RC_OK;
 	if (rc) {
 		fprintf(stderr, "mand firmware download unable to get result\n");
-		return NULL;
+		rp = NULL;
 	}
 
+	dm_release_avpgrp(&answer);
 	return rp;
 
 }
