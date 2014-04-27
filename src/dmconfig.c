@@ -990,8 +990,6 @@ char* dm_rpc_firmware_download(char *address, char *install_target,
 	int rc;
 	DM2_AVPGRP answer = DM2_AVPGRP_INITIALIZER;
 
-	return "1"; // mand RPC API is not yet implemented
-
 	rc = rpc_firmware_download(ctx, address, credentialstype, credential,
 									install_target, timeframe, retry_count,
 									retry_interval, retry_interval_increment, &answer);
