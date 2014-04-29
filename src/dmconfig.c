@@ -15,27 +15,36 @@ static DMCONTEXT *ctx;
 
 int dm_set_parameters_from_xml_call(node_t *root, node_t *n);
 
-char *list_keys[] = {
+/* parsed from yang models */
+
+const char *list_keys[] = {
 	"ip",
 	"name"
 };
-char *list_nodes[] = {
-	"address", "firmware-job",
-	"firmware-slot", "group",
-	"interface", "neighbor",
-	"rule", "rule-list",
-	"server", "ssh-key",
-	"user"
+
+const char *leafrefs[] = {
+	"lower-layer-if",
+	"higher-layer-if"
 };
-char *leaf_list_nodes[] = {
+
+const char *leaf_list_nodes[] = {
 	"higher-layer-if", "lower-layer-if",
 	"user-name", "search",
 	"user-authentication-order", "bootorder"
 };
 
+static int is_leafref(const char *leafref)
+{
+	if(leafref)
+	for( int i=0, len = ARRAY_SIZE(leafrefs); i < len; i++)
+		if(!strcmp(leafref, leafrefs[i]))
+			return 1;
+
+	return 0;
+}
 static int is_list_key(const char *node_name)
 {
-
+	if(node_name)
 	for( int i=0, len = ARRAY_SIZE(list_keys); i < len; i++)
 		if(!strcmp(node_name, list_keys[i]))
 			return 1;
@@ -45,18 +54,9 @@ static int is_list_key(const char *node_name)
 
 static int is_leaf_list_node(const char *node_name)
 {
-
+	if(node_name)
 	for( int i=0, len = ARRAY_SIZE(leaf_list_nodes); i < len; i++)
 		if(!strcmp(node_name, leaf_list_nodes[i]))
-			return 1;
-
-	return 0;
-}
-
-static int is_list_node(const char *node_name)
-{
-	for( int i=0, len = ARRAY_SIZE(list_nodes); i < len; i++)
-		if(!strcmp(node_name, list_nodes[i]))
 			return 1;
 
 	return 0;
@@ -602,7 +602,21 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 					|| (r = dm_decode_unknown_as_string(code, data, size, &value)) != RC_OK)
 					return r;
 
-				roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, value);
+				if (is_leafref(name) && value){
+					uint32_t code;
+					char *key = "name";
+					char req_len = strlen(value) + strlen(key) + 2;
+					char req[req_len];
+					snprintf(req, req_len, "%s.%s", value, key);
+
+					char *response = dm_get_parameter(req, &code);
+					roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, response);
+
+					free(response);
+				}
+				else  {
+					roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, value);
+				}
 				free(value);
 			}
 		}
@@ -827,7 +841,7 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 			printf("match got name:%s - val:%s\n", n, v);
 
 			printf("code is :%d\n", code);
-			if(v && (code == AVP_ARRAY || code == AVP_TABLE || code == AVP_OBJECT || code == AVP_INSTANCE || code == AVP_TYPE)) {
+			if((v && (code == AVP_ARRAY || code == AVP_TABLE || code == AVP_OBJECT || code == AVP_INSTANCE || code == AVP_TYPE)) || code == AVP_ARRAY) {
 				printf("table element\n");
 				DM2_AVPGRP a = DM2_AVPGRP_INITIALIZER;
 				if (rpc_db_list(ctx, 0, request, &a) != RC_OK) {
