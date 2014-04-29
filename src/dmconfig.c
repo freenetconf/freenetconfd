@@ -13,6 +13,8 @@
 
 static DMCONTEXT *ctx;
 
+int dm_set_parameters_from_xml_call(node_t *root, node_t *n);
+
 char *list_keys[] = {
 	"ip",
 	"name"
@@ -384,7 +386,7 @@ exit:
 }
 
 /*
- * dm_set_parameters_from_xml() - recursive function to parse xml parameters
+ * dm_set_parameters_from_xml_call() - recursive function to parse xml parameters
  *
  * @node_t:	xml node that we have to process
  * @node_t:	current node that we are processing
@@ -401,6 +403,21 @@ exit:
  */
 
 int dm_set_parameters_from_xml(node_t *root, node_t *n)
+{
+	int rc;
+
+	rpc_switchsession(ctx, CMD_FLAG_CONFIGURE, 0, NULL);
+
+	rc = dm_set_parameters_from_xml_call(root, n);
+
+	rpc_db_commit(ctx, NULL);
+	rpc_db_save(ctx, NULL);
+	rpc_switchsession(ctx, CMD_FLAG_READWRITE, 0, NULL);
+
+	return rc;
+}
+
+int dm_set_parameters_from_xml_call(node_t *root, node_t *n)
 {
 	if (!n || !root) return -1;
 
@@ -447,7 +464,7 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 
 		talloc_free(path); path = NULL;
 
-		return dm_set_parameters_from_xml(root, root);
+		return dm_set_parameters_from_xml_call(root, root);
 	}
 
 	/* lists */
@@ -479,7 +496,7 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 				}
 
 				roxml_del_node(n);
-				return dm_set_parameters_from_xml(root, root);
+				return dm_set_parameters_from_xml_call(root, root);
 		}
 
 		/* add '.' after we got instance number, ie:'system.ntp.server.1.' */
@@ -550,7 +567,7 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 		talloc_free(path); path = NULL;
 
 		roxml_del_node(n);
-		return dm_set_parameters_from_xml(root, root);
+		return dm_set_parameters_from_xml_call(root, root);
 	}
 
 	/* else if no children and no values (all processed) remove this child */
@@ -563,11 +580,11 @@ int dm_set_parameters_from_xml(node_t *root, node_t *n)
 
 		roxml_del_node(n);
 
-		return dm_set_parameters_from_xml(root, root);
+		return dm_set_parameters_from_xml_call(root, root);
 	}
 
 	/* process next child */
-	return dm_set_parameters_from_xml(root, child);
+	return dm_set_parameters_from_xml_call(root, child);
 }
 
 /*
