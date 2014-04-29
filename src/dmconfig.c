@@ -786,6 +786,11 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 		printf("content match node:%s\n", node_content);
 
 		int instance = dm_get_instance(path, node_name, node_content);
+		if(!instance) {
+			talloc_free(path); path = NULL;
+			return -1;
+		}
+
 		path = talloc_asprintf_append(path, ".%d", instance);
 
 		printf("path is now:%s\n", path);
