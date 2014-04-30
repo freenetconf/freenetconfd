@@ -166,6 +166,7 @@ void config_exit(void)
 	free(config.password);
 	free(config.host_dsa_key);
 	free(config.host_rsa_key);
+	free(config.host_ecdsa_key);
 	free(config.authorized_keys_file);
 	free(config.ssh_pcap_file);
 }
