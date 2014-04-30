@@ -19,6 +19,9 @@
 #include <libubox/blobmsg.h>
 #include <uci_blob.h>
 
+#include <libgen.h>
+#include <sys/stat.h>
+
 #include "config.h"
 #include "freenetconfd.h"
 
@@ -58,6 +61,37 @@ const struct uci_blob_param_list config_attr_list = {
 	.n_params = __OPTIONS_COUNT,
 	.params = config_policy
 };
+
+/*
+ * create_dir_from_path() - create directory from file path
+ *
+ * @char*:  path from which directory is created (ex: "/path/to/file")
+ *
+ * Returns 0 if created.
+ */
+static int create_dir_from_path(char *file_path)
+{
+	struct stat st;
+	int rc;
+
+	char *dir_path = dirname(file_path);
+
+	if (!dir_path || !strcmp(dir_path, ".")) {
+		ERROR("invalid dir path\n");
+		return 1;
+	}
+
+	rc = stat(dir_path, &st);
+	if (!rc) return 0;
+
+	rc = mkdir(dir_path, 0700);
+	if (rc) {
+		ERROR("creating directory '%s' failed: %s\n", dir_path, strerror(errno));
+		return 1;
+	}
+
+	return 0;
+}
 
 /*
  * config_load() - load uci config file
@@ -114,14 +148,20 @@ int config_load(void)
 	if ((c = tb[PASSWORD]))
 		config.password = strdup(blobmsg_get_string(c));
 
-	if ((c = tb[HOST_ECDSA_KEY]))
+	if ((c = tb[HOST_ECDSA_KEY])) {
 		config.host_ecdsa_key = strdup(blobmsg_get_string(c));
+		create_dir_from_path(config.host_ecdsa_key);
+	}
 
-	if ((c = tb[HOST_DSA_KEY]))
+	if ((c = tb[HOST_DSA_KEY])) {
 		config.host_dsa_key = strdup(blobmsg_get_string(c));
+		create_dir_from_path(config.host_dsa_key);
+	}
 
-	if ((c = tb[HOST_RSA_KEY]))
+	if ((c = tb[HOST_RSA_KEY])){
 		config.host_rsa_key = strdup(blobmsg_get_string(c));
+		create_dir_from_path(config.host_rsa_key);
+	}
 
 	if (!(config.host_ecdsa_key || config.host_dsa_key || config.host_rsa_key)) {
 		ERROR("at least one host key must be set\n");
