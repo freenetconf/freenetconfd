@@ -16,6 +16,8 @@
 #ifndef __FREENETCONFD_H__
 #define __FREENETCONFD_H__
 
+#define PROJECT_NAME "freenetconfd"
+
 #include <syslog.h>
 
 #define DEBUG(fmt, ...) do { \

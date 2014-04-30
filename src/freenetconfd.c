@@ -53,7 +53,7 @@ main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	LOG("entering main loop\n");
+	LOG("%s is accepting connections on '%s:%s'\n", PROJECT_NAME, config.addr, config.port);
 
 	/* main loop */
 	uloop_run();
