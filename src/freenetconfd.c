@@ -32,25 +32,25 @@ main(int argc, char **argv)
 	rc = config_load();
 	if (rc) {
 		ERROR("configuration loading failed\n");
-		exit(EXIT_FAILURE);
+		goto exit;
 	}
 
 	rc = uloop_init();
 	if (rc) {
 		ERROR("uloop init failed\n");
-		exit(EXIT_FAILURE);
+		goto exit;
 	}
 
 	rc = ssh_netconf_init();
 	if (rc) {
 		ERROR("ssh init failed\n");
-		exit(EXIT_FAILURE);
+		goto exit;
 	}
 
 	rc = ubus_init();
 	if (rc) {
 		ERROR("ubus init failed\n");
-		exit(EXIT_FAILURE);
+		goto exit;
 	}
 
 	LOG("%s is accepting connections on '%s:%s'\n", PROJECT_NAME, config.addr, config.port);
@@ -58,12 +58,15 @@ main(int argc, char **argv)
 	/* main loop */
 	uloop_run();
 
+	rc = EXIT_SUCCESS;
+exit:
 	ssh_netconf_exit();
 
 	uloop_done();
 
 	ubus_exit();
+
 	config_exit();
 
-	return EXIT_SUCCESS;
+	return rc;
 }
