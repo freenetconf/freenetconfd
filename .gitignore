@@ -29,11 +29,13 @@
 /Makefile
 /bin
 
-# stgit generated dirs
+# stgit
 patches-*
 .stgit-edit.txt
 
-# quilt's files
+# quilt
 patches
 series
 
+# ctags
+tags
