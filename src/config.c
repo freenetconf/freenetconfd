@@ -69,28 +69,33 @@ const struct uci_blob_param_list config_attr_list = {
  *
  * Returns 0 if created.
  */
-static int create_dir_from_path(char *file_path)
+static int create_dir_from_path(const char *file_path)
 {
 	struct stat st;
 	int rc;
 
-	char *dir_path = dirname(file_path);
+	char *path = strdup(file_path);
+	char *dir_path = dirname(path);
 
 	if (!dir_path || !strcmp(dir_path, ".")) {
 		ERROR("invalid dir path\n");
-		return 1;
+		rc = 1;
+		goto exit;
 	}
 
 	rc = stat(dir_path, &st);
-	if (!rc) return 0;
+	if (!rc) goto exit;
 
 	rc = mkdir(dir_path, 0700);
 	if (rc) {
 		ERROR("creating directory '%s' failed: %s\n", dir_path, strerror(errno));
-		return 1;
+		goto exit;
 	}
 
-	return 0;
+exit:
+	free(path);
+
+	return rc;
 }
 
 /*
