@@ -498,7 +498,7 @@ ssh_netconf_init(void)
 
 	if (config.host_dsa_key && (access(config.host_dsa_key, F_OK) == -1)) {
 		LOG("key doesn't exist, creating '%s' ...\n", config.host_dsa_key);
-		rc = ssh_pki_generate(SSH_KEYTYPE_DSS, 4096, &host_key);
+		rc = ssh_pki_generate(SSH_KEYTYPE_DSS, 3072, &host_key);
 		if (rc == SSH_OK) {
 			rc = ssh_pki_export_privkey_file(host_key, "", NULL, NULL, config.host_dsa_key);
 			if (rc != SSH_OK) ERROR("unable to export private key\n");
