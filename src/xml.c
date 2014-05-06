@@ -25,22 +25,28 @@
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
 #endif
 
-static int xml_handle_get(char *message_id, node_t *xml_in, char **xml_out);
-static int xml_handle_get_config(char *message_id, node_t *xml_in, char **xml_out);
-static int xml_handle_edit_config(char *message_id, node_t *xml_in, char **xml_out);
-static int xml_handle_copy_config(char *message_id, node_t *xml_in, char **xml_out);
-static int xml_handle_commit(char *message_id, node_t *xml_in, char **xml_out);
-static int xml_handle_cancel_commit(char *message_id, node_t *xml_in, char **xml_out);
-static int xml_handle_discard_changes(char *message_id, node_t *xml_in, char **xml_out);
-static int xml_handle_delete_config(char *message_id, node_t *xml_in, char **xml_out);
-static int xml_handle_lock(char *message_id, node_t *xml_in, char **xml_out);
-static int xml_handle_unlock(char *message_id, node_t *xml_in, char **xml_out);
-static int xml_handle_close_session(char *message_id, node_t *xml_in, char **xml_out);
-static int xml_handle_kill_session(char *message_id, node_t *xml_in, char **xml_out);
+struct rpc_data {
+	char *message_id;
+	node_t *in;
+	node_t *out;
+};
+
+static int xml_handle_get(struct rpc_data *data);
+static int xml_handle_get_config(struct rpc_data *data);
+static int xml_handle_edit_config(struct rpc_data *data);
+static int xml_handle_copy_config(struct rpc_data *data);
+static int xml_handle_commit(struct rpc_data *data);
+static int xml_handle_cancel_commit(struct rpc_data *data);
+static int xml_handle_discard_changes(struct rpc_data *data);
+static int xml_handle_delete_config(struct rpc_data *data);
+static int xml_handle_lock(struct rpc_data *data);
+static int xml_handle_unlock(struct rpc_data *data);
+static int xml_handle_close_session(struct rpc_data *data);
+static int xml_handle_kill_session(struct rpc_data *data);
 
 struct rpc_method {
 	const char *name;
-	int (*handler) (char *message_id, node_t *xml_in, char **xml_out);
+	int (*handler) (struct rpc_data *data);
 };
 
 const struct rpc_method rpc_methods[] = {
@@ -122,6 +128,7 @@ int xml_handle_message_rpc(char *xml_in, char **xml_out)
 	int rc = -1;
 	char *message_id = 0;
 	char *operation_name = 0;
+	struct rpc_data data = {};
 
 	node_t *root = roxml_load_buf(xml_in);
 	if (!root) goto exit;
@@ -152,9 +159,18 @@ int xml_handle_message_rpc(char *xml_in, char **xml_out)
 
 	if (!method) goto exit;
 
-	rc = method->handler(message_id, operation, xml_out);
+	data.message_id = message_id;
+	data.in = operation;
+	data.out = NULL;
+
+	rc = method->handler(&data);
 
 exit:
+	if (data.out) {
+		roxml_commit_changes(data.out, NULL, xml_out, 0);
+		roxml_close(data.out);
+	}
+
 	roxml_release(RELEASE_ALL);
 	roxml_close(root);
 
@@ -162,99 +178,79 @@ exit:
 }
 
 static int
-xml_handle_get(char *message_id, node_t *xml_in, char **xml_out)
+xml_handle_get(struct rpc_data *data)
 {
 	return 0;
 }
 
 static int
-xml_handle_get_config(char *message_id, node_t *xml_in, char **xml_out)
+xml_handle_get_config(struct rpc_data *data)
 {
 	return 0;
 }
 
 static int
-xml_handle_edit_config(char *message_id, node_t *xml_in, char **xml_out)
+xml_handle_edit_config(struct rpc_data *data)
 {
 
 	return 0;
 }
 
 static int
-xml_handle_copy_config(char *message_id, node_t *xml_in, char **xml_out)
+xml_handle_copy_config(struct rpc_data *data)
 {
 	return 0;
 }
 
 static int
-xml_handle_delete_config(char *message_id, node_t *xml_in, char **xml_out)
+xml_handle_delete_config(struct rpc_data *data)
 {
 	return 0;
 }
 
 static int
-xml_handle_lock(char *message_id, node_t *xml_in, char **xml_out)
+xml_handle_lock(struct rpc_data *data)
 {
 	return 0;
 }
 
 static int
-xml_handle_unlock(char *message_id, node_t *xml_in, char **xml_out)
+xml_handle_unlock(struct rpc_data *data)
 {
 	return 0;
 }
 
 static int
-xml_handle_close_session(char *message_id, node_t *xml_in, char **xml_out)
+xml_handle_close_session(struct rpc_data *data)
 {
-	node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
-	if (!doc_out) goto exit;
-
-	node_t *root = roxml_get_chld(doc_out, NULL, 0);
-	if (!root) goto exit;
-
-	node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
-	if (!attr) goto exit;
-
-	roxml_commit_changes(doc_out, NULL, xml_out, 0);
-
-exit:
-	roxml_close(doc_out);
+	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
+	node_t *root = roxml_get_chld(data->out, NULL, 0);
+	roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", data->message_id);
 
 	return 1;
 }
 
 static int
-xml_handle_kill_session(char *message_id, node_t *xml_in, char **xml_out)
+xml_handle_kill_session(struct rpc_data *data)
 {
-	node_t *doc_out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
-	if (!doc_out) goto exit;
-
-	node_t *root = roxml_get_chld(doc_out, NULL, 0);
-	if (!root) goto exit;
-
-	node_t *attr = roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", message_id);
-	if (!attr) goto exit;
-
-	roxml_commit_changes(doc_out, NULL, xml_out, 0);
-
-exit:
-	roxml_close(doc_out);
+	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
+	node_t *root = roxml_get_chld(data->out, NULL, 0);
+	roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", data->message_id);
 
 	return 1;
 }
 
-static int xml_handle_commit(char *message_id, node_t *xml_in, char **xml_out)
+static int xml_handle_commit(struct rpc_data *data)
 {
 	return 0;
 }
 
-static int xml_handle_cancel_commit(char *message_id, node_t *xml_in, char **xml_out)
+static int xml_handle_cancel_commit(struct rpc_data *data)
 {
 	return 0;
 }
 
-static int xml_handle_discard_changes(char *message_id, node_t *xml_in, char **xml_out)
+static int xml_handle_discard_changes(struct rpc_data *data)
 {
 	return 0;
 }
