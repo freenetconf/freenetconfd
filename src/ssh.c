@@ -368,6 +368,7 @@ free_ssh:
 	if (ssh_session) ssh_free(ssh_session);
 
 	DEBUG("session closed\n");
+	uloop_fd_delete(&s.ssh_fd);
 	uloop_end();
 }
 
@@ -405,13 +406,13 @@ ssh_handle_connection(struct uloop_fd *u_fd, __unused unsigned int events)
 			ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_HOSTKEY, config.host_dsa_key);
 			ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_HOSTKEY, config.host_rsa_key);
 
-			ssh_bind_set_blocking(s.ssh_bind, 1);
+			ssh_bind_set_blocking(s.ssh_bind, 0);
 			ssh_bind_set_fd(s.ssh_bind, client_fd);
 
 			s.ssh_fd.cb = ssh_cb;
 			s.ssh_fd.fd = client_fd;
 
-			uloop_fd_add(&s.ssh_fd, ULOOP_READ | ULOOP_WRITE | ULOOP_EDGE_TRIGGER);
+			uloop_fd_add(&s.ssh_fd, ULOOP_READ | ULOOP_WRITE);
 		}
 	}
 }
@@ -456,7 +457,7 @@ ssh_reverse_connect(char *user, char *fingerprint, char *host, char *port)
 	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_HOSTKEY, config.host_dsa_key);
 	ssh_bind_options_set(s.ssh_bind, SSH_BIND_OPTIONS_HOSTKEY, config.host_rsa_key);
 
-	ssh_bind_set_blocking(s.ssh_bind, 1);
+	ssh_bind_set_blocking(s.ssh_bind, 0);
 	ssh_bind_set_fd(s.ssh_bind, fd);
 
 	s.ssh_fd.cb = ssh_cb;
@@ -522,7 +523,7 @@ ssh_netconf_init(void)
 		return -1;
 	}
 
-	uloop_fd_add(&ssh_srv, ULOOP_READ | ULOOP_EDGE_TRIGGER);
+	uloop_fd_add(&ssh_srv, ULOOP_READ);
 
 	return 0;
 }
