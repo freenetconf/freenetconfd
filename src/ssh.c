@@ -463,7 +463,7 @@ ssh_reverse_connect(char *user, char *fingerprint, char *host, char *port)
 	s.ssh_fd.cb = ssh_cb;
 	s.ssh_fd.fd = fd;
 
-	uloop_fd_add(&s.ssh_fd, ULOOP_READ | ULOOP_WRITE | ULOOP_EDGE_TRIGGER);
+	uloop_fd_add(&s.ssh_fd, ULOOP_READ | ULOOP_WRITE);
 }
 
 static void
