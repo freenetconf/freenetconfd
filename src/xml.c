@@ -211,12 +211,20 @@ xml_handle_delete_config(struct rpc_data *data)
 static int
 xml_handle_lock(struct rpc_data *data)
 {
+	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
+	node_t *root = roxml_get_chld(data->out, NULL, 0);
+	roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", data->message_id);
+
 	return 0;
 }
 
 static int
 xml_handle_unlock(struct rpc_data *data)
 {
+	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
+	node_t *root = roxml_get_chld(data->out, NULL, 0);
+	roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", data->message_id);
+
 	return 0;
 }
 
