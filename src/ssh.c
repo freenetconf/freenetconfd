@@ -418,7 +418,7 @@ ssh_handle_connection(struct uloop_fd *u_fd, __unused unsigned int events)
 }
 
 void
-ssh_reverse_connect(char *user, char *fingerprint, char *host, char *port)
+ssh_reverse_connect(char *host, char *port)
 {
 	LOG("initiating reverse ssh connection\n");
 

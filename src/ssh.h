@@ -15,7 +15,7 @@
 #ifndef __SSH_H__
 #define __SSH_H__
 
-void ssh_reverse_connect(char *user, char *fingerprint, char *host, char *port);
+void ssh_reverse_connect(char *host, char *port);
 
 int ssh_netconf_init(void);
 void ssh_netconf_exit(void);

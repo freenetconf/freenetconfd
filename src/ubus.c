@@ -27,16 +27,12 @@ static struct ubus_object main_object;
 
 /* reverse ssh */
 enum connect {
-	CONNECT_USER,
-	CONNECT_FINGERPRINT,
 	CONNECT_HOST,
 	CONNECT_PORT,
 	__CONNECT_MAX
 };
 
 static const struct blobmsg_policy connect_policy[] = {
-	[CONNECT_USER] = { .name = "user", .type = BLOBMSG_TYPE_STRING },
-	[CONNECT_FINGERPRINT] = { .name = "fingerprint", .type = BLOBMSG_TYPE_STRING },
 	[CONNECT_HOST] = { .name = "host", .type = BLOBMSG_TYPE_STRING },
 	[CONNECT_PORT] = { .name = "port", .type = BLOBMSG_TYPE_STRING },
 };
@@ -54,19 +50,10 @@ fnd_handle_connect(struct ubus_context *ctx, struct ubus_object *obj,
 	if (!tb[CONNECT_HOST])
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	if (!tb[CONNECT_USER])
-		return UBUS_STATUS_INVALID_ARGUMENT;
-
-	if (!tb[CONNECT_FINGERPRINT])
-		return UBUS_STATUS_INVALID_ARGUMENT;
-
 	if (!tb[CONNECT_PORT])
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	ssh_reverse_connect(blobmsg_data(tb[CONNECT_USER]),
-			    blobmsg_data(tb[CONNECT_FINGERPRINT]),
-			    blobmsg_data(tb[CONNECT_HOST]),
-			    blobmsg_data(tb[CONNECT_PORT]));
+	ssh_reverse_connect(blobmsg_data(tb[CONNECT_HOST]), blobmsg_data(tb[CONNECT_PORT]));
 
 	return 0;
 }
