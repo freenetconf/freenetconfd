@@ -17,6 +17,9 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
+#include <inttypes.h>
+#include <stdbool.h>
+
 int config_load(void);
 void config_exit(void);
 
