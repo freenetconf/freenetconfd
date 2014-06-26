@@ -37,6 +37,7 @@ struct config_t {
 	uint32_t ssh_timeout_read;
 	bool ssh_pcap_enable;
 	char *ssh_pcap_file;
+	char *yang_dir;
 } config;
 
 #endif /* __CONFIG_H__ */

@@ -21,6 +21,7 @@
 #include "xml.h"
 #include "freenetconfd.h"
 #include "messages.h"
+#include "config.h"
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
@@ -44,6 +45,7 @@ static int xml_handle_lock(struct rpc_data *data);
 static int xml_handle_unlock(struct rpc_data *data);
 static int xml_handle_close_session(struct rpc_data *data);
 static int xml_handle_kill_session(struct rpc_data *data);
+static int xml_handle_get_schema(struct rpc_data *data);
 
 struct rpc_method {
 	const char *name;
@@ -53,6 +55,7 @@ struct rpc_method {
 const struct rpc_method rpc_methods[] = {
 	{ "get", xml_handle_get },
 	{ "get-config", xml_handle_get_config },
+	{ "get-schema", xml_handle_get_schema },
 	{ "edit-config", xml_handle_edit_config },
 	{ "copy-config", xml_handle_copy_config },
 	{ "delete-config", xml_handle_delete_config },
@@ -282,5 +285,123 @@ static int xml_handle_cancel_commit(struct rpc_data *data)
 
 static int xml_handle_discard_changes(struct rpc_data *data)
 {
+	return 0;
+}
+
+static int xml_handle_get_schema(struct rpc_data *data)
+{
+	FILE *yang_module = NULL;
+	char yang_module_filename[BUFSIZ];
+	char *yang_module_content = NULL;
+	long yang_module_size;
+	node_t *n_identifier, *n_version, *n_format;
+	char *c_identifier, *c_version, *c_format;
+	char *xml_entities[5][2] = {{"&", "&amp;"},
+						 {"\"", "&quot;"},
+						 {"\'", "&apos;"},
+						 {"<", "&lt;"},
+						 {">", "&gt;"}};
+
+	if (!config.yang_dir) {
+		ERROR ("yang dir not specified\n");
+		goto exit;
+	}
+
+	LOG("yang directory: %s\n", config.yang_dir);
+
+	n_identifier = roxml_get_chld(data->in, "identifier", 0);
+	c_identifier = roxml_get_content(n_identifier, NULL, 0, NULL);
+
+	if (!n_identifier || !c_identifier) {
+		ERROR("yang module identifier not specified\n");
+		goto exit;
+	}
+
+	n_version = roxml_get_chld(data->in, "version", 0);
+	c_version = roxml_get_content(n_version, NULL, 0, NULL);
+
+	/* 'yang' format if ommited */
+	n_format = roxml_get_chld(data->in, "format", 0);
+	c_format = roxml_get_content(n_format, NULL, 0, NULL);
+
+	DEBUG("yang format:%s\n", c_format);
+
+	/* TODO: return rpc-error */
+	if (n_format && c_format && !strstr(c_format, "yang")) {
+		ERROR("yang format not valid or supported\n");
+		goto exit;
+	}
+
+	data->out = roxml_load_buf(XML_NETCONF_REPLY_TEMPLATE);
+	node_t *root = roxml_get_chld(data->out, NULL, 0);
+	roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", data->message_id);
+
+	snprintf(yang_module_filename, BUFSIZ, "%s/%s", config.yang_dir, c_identifier);
+	if (c_version) {
+		snprintf(yang_module_filename + strlen(yang_module_filename), BUFSIZ, "@%s", c_version);
+	}
+	strncat(yang_module_filename, ".yang", 5);
+
+	DEBUG("yang filename:%s\n", yang_module_filename);
+
+	yang_module = fopen (yang_module_filename, "rb");
+	if (!yang_module) {
+		ERROR("yang module:%s not found\n", yang_module_filename);
+		goto exit;
+	}
+
+	fseek (yang_module, 0, SEEK_END);
+	yang_module_size = ftell (yang_module);
+	fseek (yang_module, 0, SEEK_SET);
+	yang_module_content = malloc (yang_module_size);
+
+	if (!yang_module_content) {
+		ERROR("unable to load yang module\n");
+		goto exit;
+	}
+
+	/* escape xml from yang module */
+	int c, pos = 0;
+	while ((c = fgetc(yang_module)) != EOF) {
+		char ch = (char) c;
+		int escape_found = 0;
+
+		for (int i = 0; i < 5; i++) {
+			char r = xml_entities[i][0][0];
+			char *s = xml_entities[i][1];
+			int len = strlen(s);
+
+			if (r == ch) {
+				yang_module_size += len;
+				yang_module_content = realloc(yang_module_content, yang_module_size);
+				strncpy(yang_module_content + pos, s, len);
+				pos += len;
+				escape_found = 1;
+				break;
+			}
+		}
+
+		if (!escape_found)
+			yang_module_content[pos++] = ch;
+	}
+
+	node_t *n_schema = roxml_add_node(root, 0, ROXML_ELM_NODE, "data", yang_module_content);
+	if (!n_schema) {
+		ERROR("unable to add data node\n");
+		goto exit;
+	}
+
+	node_t *n_attr = roxml_add_node(n_schema, 0, ROXML_ATTR_NODE, "xmlns", "urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring");
+	if (!n_attr) {
+		ERROR("unable to set attribute\n");
+		goto exit;
+	}
+
+exit:
+	if (yang_module)
+		fclose(yang_module);
+
+	free(yang_module_content);
+
 	return 0;
 }

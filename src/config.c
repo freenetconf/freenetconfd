@@ -40,6 +40,7 @@ enum {
 	SSH_TIMEOUT_READ,
 	SSH_PCAP_ENABLE,
 	SSH_PCAP_FILE,
+	YANG_DIR,
 	__OPTIONS_COUNT
 };
 
@@ -57,6 +58,7 @@ const struct blobmsg_policy config_policy[__OPTIONS_COUNT] = {
 	[SSH_TIMEOUT_READ] = { .name = "ssh_timeout_read", .type = BLOBMSG_TYPE_INT32 },
 	[SSH_PCAP_ENABLE] = { .name = "ssh_pcap_enable", .type = BLOBMSG_TYPE_BOOL },
 	[SSH_PCAP_FILE] = { .name = "ssh_pcap_file", .type = BLOBMSG_TYPE_STRING },
+	[YANG_DIR] = { .name = "yang_dir", .type = BLOBMSG_TYPE_STRING },
 };
 const struct uci_blob_param_list config_attr_list = {
 	.n_params = __OPTIONS_COUNT,
@@ -141,6 +143,7 @@ int config_load(void)
 	config.ssh_pcap_enable = 0;
 	config.ssh_pcap_file = NULL;
 	config.log_level = 0;
+	config.yang_dir = NULL;
 
 	if ((c = tb[ADDR]))
 		config.addr = strdup(blobmsg_get_string(c));
@@ -197,6 +200,9 @@ int config_load(void)
 	if ((c = tb[LOG_LEVEL]))
 		config.log_level = blobmsg_get_u32(c);
 
+	if ((c = tb[YANG_DIR]))
+		config.yang_dir = strdup(blobmsg_get_string(c));
+
 	blob_buf_free(&buf);
 	uci_unload(uci, conf);
 	uci_free_context(uci);
@@ -215,4 +221,5 @@ void config_exit(void)
 	free(config.host_ecdsa_key);
 	free(config.authorized_keys_file);
 	free(config.ssh_pcap_file);
+	free(config.yang_dir);
 }
