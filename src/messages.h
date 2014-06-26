@@ -32,7 +32,6 @@
   "<capability>urn:ietf:params:netconf:capability:notification:1.0</capability>" \
   "<capability>urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring?module=ietf-netconf-monitoring&amp;revision=2010-10-04</capability>" \
  "</capabilities>" \
- "<session-id>1</session-id>" \
 "</hello>"
 
 #define XML_NETCONF_REPLY_OK_TEMPLATE \

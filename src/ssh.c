@@ -50,6 +50,7 @@ struct ssh {
 
 static struct ssh s;
 static int netconf_base = 1;
+uint32_t session_id = 0;
 
 static int
 ssh_check_key(ssh_key key_client)
@@ -214,10 +215,6 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 		return;
 	}
 
-	/* TODO: review this again */
-	static int session_id = 0;
-	session_id++;
-
 	/* configure timeout */
 	ssh_options_set(ssh_session, SSH_OPTIONS_TIMEOUT, &config.ssh_timeout_socket);
 
@@ -334,7 +331,10 @@ static void ssh_cb(struct uloop_fd *fd, unsigned int flags)
 	if (rc) goto free_xml;
 
 	DEBUG("sending <hello>\n");
-	rc = netconf_write(&ssh_channel, XML_NETCONF_HELLO , 1);
+	rc = xml_create_message_hello(session_id, &xml_msg_out);
+	if (rc) goto free_xml;
+
+	rc = netconf_write(&ssh_channel, xml_msg_out , 1);
 	if (rc) goto free_xml;
 
 	int rp = 0;
@@ -395,6 +395,10 @@ ssh_handle_connection(struct uloop_fd *u_fd, __unused unsigned int events)
 			uloop_process_add(uproc);
 			close(client_fd);
 		} else { /* child */
+
+			/* save session id as process pid */
+			session_id = getpid();
+
 			s.ssh_bind = ssh_bind_new();
 			if (!s.ssh_bind) {
 				ERROR("not enough memory\n");
@@ -437,6 +441,9 @@ ssh_reverse_connect(char *host, char *port)
 	}
 
 	/* child */
+
+	/* save session id as process pid */
+	session_id = getpid();
 
 	int fd = 0;
 

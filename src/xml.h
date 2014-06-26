@@ -18,6 +18,7 @@
 #define __XML_H__
 
 int xml_analyze_message_hello(char *xml_in, int *base);
+int xml_create_message_hello(uint32_t session_id, char **xml_out);
 int xml_handle_message_rpc(char *xml_in, char **xml_out);
 
 #endif /* __XML_H__ */

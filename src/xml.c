@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <roxml.h>
+#include <stdint.h>
 
 #include "xml.h"
 #include "freenetconfd.h"
@@ -115,6 +116,43 @@ exit:
 	roxml_release(RELEASE_ALL);
 	roxml_close(root);
 
+	return rc;
+}
+
+int xml_create_message_hello(uint32_t session_id, char **xml_out)
+{
+	int rc = -1, len;
+	char c_session_id[BUFSIZ];
+
+	node_t *root = roxml_load_buf(XML_NETCONF_HELLO);
+	if (!root) {
+		ERROR("unable to load 'netconf hello' message template\n");
+		goto exit;
+	}
+
+	len = snprintf(c_session_id, BUFSIZ, "%d", session_id);
+	if (len <= 0) {
+		ERROR("unable to convert session_id\n");
+		goto exit;
+	}
+
+	node_t *n_session_id = roxml_add_node(root, 0, ROXML_ELM_NODE, "session-id", c_session_id);
+	if (!n_session_id) {
+		ERROR("unable to add session id node\n");
+		goto exit;
+	}
+
+	len = roxml_commit_changes(root, NULL, xml_out, 0);
+	if (len <= 0) {
+		ERROR("unable to create 'netconf hello' message\n");
+		goto exit;
+	}
+
+	rc = 0;
+
+exit:
+
+	roxml_close(root);
 	return rc;
 }
 
@@ -405,3 +443,4 @@ exit:
 
 	return 0;
 }
+
