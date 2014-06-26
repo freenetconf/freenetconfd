@@ -520,7 +520,7 @@ ssh_netconf_init(void)
 
 	ssh_srv.fd = usock(USOCK_TCP | USOCK_SERVER | USOCK_NONBLOCK, config.addr, config.port);
 	if (ssh_srv.fd < 0) {
-		ERROR("Unable to bind socket: %s", strerror(errno));
+		ERROR("Unable to bind socket: %s\n", strerror(errno));
 		return -1;
 	}
 
