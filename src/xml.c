@@ -130,13 +130,19 @@ int xml_create_message_hello(uint32_t session_id, char **xml_out)
 		goto exit;
 	}
 
+	node_t *n_hello = roxml_get_chld(root, NULL, 0);
+	if (!n_hello) {
+		ERROR("unable to parse 'netconf hello' message template\n");
+		goto exit;
+	}
+
 	len = snprintf(c_session_id, BUFSIZ, "%d", session_id);
 	if (len <= 0) {
 		ERROR("unable to convert session_id\n");
 		goto exit;
 	}
 
-	node_t *n_session_id = roxml_add_node(root, 0, ROXML_ELM_NODE, "session-id", c_session_id);
+	node_t *n_session_id = roxml_add_node(n_hello, 0, ROXML_ELM_NODE, "session-id", c_session_id);
 	if (!n_session_id) {
 		ERROR("unable to add session id node\n");
 		goto exit;
