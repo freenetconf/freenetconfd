@@ -429,6 +429,8 @@ static int xml_handle_get_schema(struct rpc_data *data)
 			yang_module_content[pos++] = ch;
 	}
 
+	yang_module_content[pos] = 0;
+
 	node_t *n_schema = roxml_add_node(root, 0, ROXML_ELM_NODE, "data", yang_module_content);
 	if (!n_schema) {
 		ERROR("unable to add data node\n");
