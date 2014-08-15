@@ -759,16 +759,16 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 	}
 
 	node_t *next_node = *xml_out;
-	char *current_path = talloc_strdup(NULL, path);
+	char *current_path = talloc_strdup(NULL, path ? : "");
 	char *node_name = roxml_get_name(filter_node, NULL, 0);
 	int is_key = is_list_key(node_name);
 
 	/* if not root node or key node add to path */
 	if (strcmp(node_name, "filter") && !is_key) {
-		path = talloc_asprintf_append(path, "%s%s", path ? "." : "", node_name);
-		if (!path || !strlen(path)) {
+		current_path = talloc_asprintf_append(current_path, "%s%s", strlen(path) ? "." : "", node_name);
+		if (!current_path || !strlen(current_path)) {
 			fprintf(stderr, "unable to reallocate\n");
-			return -1;
+			goto out;
 		}
 		next_node = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, node_name, NULL);
 		/*  ietf attributes */
@@ -785,13 +785,13 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 			roxml_add_node(next_node, 0, ROXML_ATTR_NODE, "xmlns", attr_type);
 	}
 
-	printf("path:%s\n", path);
+	printf("path:%s\n", current_path);
 
 	/* we are always looking for the last child node for getting data */
 	node_t *child = roxml_get_chld(filter_node, NULL, 0);
 	if (child) {
-		rc = dm_get_xml_config(filter_root, child, &next_node, path);
-		return rc;
+		rc = dm_get_xml_config(filter_root, child, &next_node, current_path);
+		goto out;
 	}
 
 	/* check if content match node */
@@ -799,15 +799,13 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 	if (node_content && strlen(node_content)) {
 		printf("content match node:%s\n", node_content);
 
-		int instance = dm_get_instance(path, node_name, node_content);
-		if(!instance) {
-			talloc_free(path); path = NULL;
-			return -1;
-		}
+		int instance = dm_get_instance(current_path, node_name, node_content);
+		if(!instance)
+			goto out;
 
-		path = talloc_asprintf_append(path, ".%d", instance);
+		current_path = talloc_asprintf_append(current_path, ".%d", instance);
 
-		printf("path is now:%s\n", path);
+		printf("path is now:%s\n", current_path);
 
 		node_t *s = filter_node;
 		while ((s = roxml_get_next_sibling(s))) {
@@ -815,13 +813,13 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 			char *n = roxml_get_name(s, NULL, 0);
 			if(!n) {
 				fprintf(stderr, "unable to get node name\n");
-				return -1;
+				goto out;
 			}
 
 			node_t *c = roxml_get_chld(s, NULL, 0);
 			if(c) {
 				printf("this node:%s has child\n",n);
-				char *p = talloc_asprintf_append(path, ".%s", n);
+				char *p = talloc_asprintf_append(current_path, ".%s", n);
 				next_node = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, n, NULL);
 				if(!strcmp(n, "ipv4") || !strcmp(n, "ipv6"))
 					roxml_add_node(next_node, 0, ROXML_ATTR_NODE, "xmlns", "urn:ietf:params:xml:ns:yang:ietf-ip");
@@ -829,10 +827,10 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 				continue;
 			}
 
-			int req_size = strlen(path) + strlen(n) + 200;
+			int req_size = strlen(current_path) + strlen(n) + 200;
 			char request[req_size];
 
-			snprintf(request, req_size, "%s.%s", path, n);
+			snprintf(request, req_size, "%s.%s", current_path, n);
 			printf("request:%s\n", request);
 
 			uint32_t code;
@@ -847,7 +845,8 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 				if (rpc_db_list(ctx, 0, request, &a) != RC_OK) {
 					fprintf(stderr, "unable to get list from mand\n");
 					dm_release_avpgrp(&a);
-					return -1;
+					free(v);
+					goto out;
 				}
 				while (dm_list_to_xml(&a, xml_out, 1, NULL, NULL) == RC_OK);
 				dm_release_avpgrp(&a);
@@ -859,17 +858,18 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 		};
 
 		printf("all done\n");
-		return 0;
+		rc = 0;
+		goto out;
 	}
 
 
 	/* get paramater/list from mand */
 	DM2_AVPGRP answer = DM2_AVPGRP_INITIALIZER;
-	if ((rc = rpc_db_list(ctx, 0, path, &answer)) != RC_OK) {
-		fprintf(stderr, "dmconfig: couldn't get list for path:%s\n", path);
+	if ((rc = rpc_db_list(ctx, 0, current_path, &answer)) != RC_OK) {
+		fprintf(stderr, "dmconfig: couldn't get list for path:%s\n", current_path);
 		dm_release_avpgrp(&answer);
-		talloc_free(path); path = NULL;
-		return -1;
+		rc = -1;
+		goto out;
 	}
 
 	uint32_t code, vendor_id; void *data; size_t size;
@@ -877,15 +877,15 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 	if (rc != RC_OK) {
 		fprintf(stderr, "unable to get type from mand\n");
 		dm_release_avpgrp(&answer);
-		talloc_free(path); path = NULL;
-		return -1;
+		rc = -1;
+		goto out;
 	}
 
 	/* what type of data did we got from mand */
 	switch (code) {
 		case AVP_ELEMENT: {
 				uint32_t code;
-				char *param_value = dm_get_parameter(path, &code);
+				char *param_value = dm_get_parameter(current_path, &code);
 				/* emtpy value is allowed */
 
 				printf("got parameter back:%s\n", param_value);
@@ -894,8 +894,8 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 				if (!node_value) {
 					fprintf(stderr, "unable to set node value\n");
 					dm_release_avpgrp(&answer);
-					talloc_free(path); path = NULL;
-					return -1;
+					rc = -1;
+					goto out;
 				}
 			}
 		break;
@@ -907,7 +907,7 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 		case AVP_OBJECT:
 		case AVP_TABLE:
 
-			rpc_db_list(ctx, 0, path, &answer);
+			rpc_db_list(ctx, 0, current_path, &answer);
 
 			/* check if key match node */
 			if (is_key) {
@@ -929,11 +929,12 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 	node_t *s = roxml_get_next_sibling(filter_node);
 	if (s) {
 		printf("got sibling:%s\n", roxml_get_name(s, NULL, 0));
-		rc = dm_get_xml_config(filter_root, s, xml_out, current_path);
-		return rc;
+		rc = dm_get_xml_config(filter_root, s, xml_out, path);
 	}
 
-	return 0;
+out:
+	talloc_free(current_path);
+	return rc;
 }
 /*
  * dm_set_current_datetime() - set datetime
