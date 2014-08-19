@@ -330,28 +330,38 @@ static int dm_set_array(char *path, node_t *s)
 	};
 	struct rpc_db_set_path_value *array = NULL;
 
-	for (cnt = 0; s != 0; s = roxml_get_next_sibling(s)) {
-		if (netconf_operation(s) == NETCONF_OP_DEL)
-			continue;
+	char *node_name = roxml_get_name(s, NULL, 0);
 
-		char *value = roxml_get_content(s, NULL, 0, NULL);
-		printf("leaf value:%s\n", value);
-		yang_del_prefix(&value);
+	for (cnt = 0; s != 0; ) {
 
-		if ((cnt % BLOCK_ALLOC) == 0)
-			array = talloc_realloc(NULL, array, struct rpc_db_set_path_value, cnt + BLOCK_ALLOC);
-		if (!array)
-			return RC_ERR_ALLOC;
-		memset(array + cnt, 0, sizeof(struct rpc_db_set_path_value));
+		if (strcmp(node_name, roxml_get_name(s, NULL, 0)))
+			break;
 
-		array[cnt].value.code = AVP_UNKNOWN;
-		array[cnt].value.vendor_id = VP_TRAVELPING;
-		array[cnt].value.data = value;
-		array[cnt].value.size = strlen(value);
+		if (netconf_operation(s) != NETCONF_OP_DEL) {
 
-		printf("array[%d]=%s\n", cnt, value);
+			char *value = roxml_get_content(s, NULL, 0, NULL);
+			printf("leaf value:%s\n", value);
+			yang_del_prefix(&value);
 
-		cnt++;
+			if ((cnt % BLOCK_ALLOC) == 0)
+				array = talloc_realloc(NULL, array, struct rpc_db_set_path_value, cnt + BLOCK_ALLOC);
+			if (!array)
+				return RC_ERR_ALLOC;
+			memset(array + cnt, 0, sizeof(struct rpc_db_set_path_value));
+
+			array[cnt].value.code = AVP_UNKNOWN;
+			array[cnt].value.vendor_id = VP_TRAVELPING;
+			array[cnt].value.data = value;
+			array[cnt].value.size = strlen(value);
+
+			printf("array[%d]=%s\n", cnt, value);
+
+			cnt++;
+		}
+
+		node_t *next = roxml_get_next_sibling(s);
+		roxml_del_curr(&s);
+		s = next;
 	}
 
 
@@ -373,6 +383,7 @@ static int dm_set_array(char *path, node_t *s)
 exit:
 	dm_release_avpgrp(&answer);
 	talloc_free(array);
+
 	return rc;
 }
 
@@ -434,8 +445,6 @@ int dm_set_parameters_from_xml_call(node_t *root, node_t *n)
 		path[strlen(path) -1] = 0;
 
 		dm_set_array(path, n);
-
-		roxml_del_node(roxml_get_parent(n));
 
 		talloc_free(path); path = NULL;
 
