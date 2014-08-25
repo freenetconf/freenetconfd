@@ -24,7 +24,9 @@ const char *list_keys[] = {
 
 const char *leafrefs[] = {
 	"lower-layer-if",
-	"higher-layer-if"
+	"higher-layer-if",
+	"install-target",
+	"bootorder"
 };
 
 const char *leaf_list_nodes[] = {
@@ -223,6 +225,23 @@ static int dm_commit()
 }
 */
 
+/*
+ * dm_get_leafref() - get leafref value from mand
+ *
+ * @char*:	path of the leafref
+ * @char*:	key we are searching for
+ *
+ * Returns leafref value.
+ */
+static char *dm_get_leafref(char *path, char *key)
+{
+	uint32_t code;
+	char req_len = strlen(path) + strlen(key) + 2;
+	char req[req_len];
+	snprintf(req, req_len, "%s.%s", path, key);
+
+	return dm_get_parameter(req, &code);
+}
 /*
  * dm_get_instance() - get instance from mand
  *
@@ -612,16 +631,10 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 					return r;
 
 				if (is_leafref(name) && value){
-					uint32_t code;
-					char *key = "name";
-					char req_len = strlen(value) + strlen(key) + 2;
-					char req[req_len];
-					snprintf(req, req_len, "%s.%s", value, key);
+					char *leaf_value = dm_get_leafref(value, "name");
+					roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, leaf_value);
 
-					char *response = dm_get_parameter(req, &code);
-					roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, response);
-
-					free(response);
+					free(leaf_value);
 				}
 				else  {
 					roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, value);
@@ -655,20 +668,20 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 	case AVP_OBJECT:
 			printf("AVP_OBJECT\n");
 
-		/* skip first node */
-		if (!elem_node) {
-			++elem_node;
-			while (dm_list_to_xml(&container, xml_out, elem_node, NULL, filter) == RC_OK);
-
-			return RC_OK;
-		}
-
 		if ((r = dm_expect_string_type(&container, AVP_NAME, VP_TRAVELPING, &name)) != RC_OK) {
 			fprintf(stderr, "invalid object\n");
 			return r;
 		}
 
 		printf("object:%s\n", name);
+
+		/* skip first node */
+		if (!elem_node && strcmp(name, "status")) {
+			++elem_node;
+			while (dm_list_to_xml(&container, xml_out, elem_node, NULL, filter) == RC_OK);
+
+			return RC_OK;
+		}
 
 		node_t *n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, NULL);
 		if (!n) {
@@ -720,8 +733,6 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 			return r;
 		}
 
-		printf("element:%s\n", name);
-
 		if ((r = dm_decode_unknown_as_string(code, data, size, &value)) != RC_OK) {
 			fprintf(stderr, "unable to decode value from mand\n");
 			return r;
@@ -734,7 +745,13 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 			return -1;
 		}
 
-		//printf("value:%s\n", value);
+		printf("name:%s, value:%s\n", name, value);
+		if (is_leafref(name) && value) {
+			char *leaf_value = dm_get_leafref(value, "name");
+			free(value);
+			value = leaf_value;
+		}
+
 		n = roxml_add_node(*xml_out, 0, ROXML_ELM_NODE, name, value);
 		if (!n)
 			fprintf(stderr, "dm_get_xml_config: unable to add parameter node\n");
@@ -787,7 +804,7 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 			attr_type = "urn:ietf:params:xml:ns:yang:ietf-system";
 		else if (!strcmp(node_name, "interfaces") || !strcmp(node_name, "interfaces-state"))
 			attr_type = "urn:ietf:params:xml:ns:yang:ietf-interfaces";
-		else if (!strcmp(node_name, "firmware-slot"))
+		else if (!strcmp(node_name, "firmware-slot") || !strcmp(node_name, "firmware-job"))
 			attr_type = "urn:opencpe:firmware-mgmt";
 
 		if (attr_type)
