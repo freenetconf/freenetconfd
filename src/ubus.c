@@ -21,46 +21,11 @@
 #include "ubus.h"
 
 #include "freenetconfd.h"
-#include "ssh.h"
 
 static struct ubus_context *ubus = NULL;
 static struct ubus_object main_object;
 
-/* reverse ssh */
-enum connect {
-	CONNECT_HOST,
-	CONNECT_PORT,
-	__CONNECT_MAX
-};
-
-static const struct blobmsg_policy connect_policy[] = {
-	[CONNECT_HOST] = { .name = "host", .type = BLOBMSG_TYPE_STRING },
-	[CONNECT_PORT] = { .name = "port", .type = BLOBMSG_TYPE_STRING },
-};
-
-static int
-fnd_handle_connect(struct ubus_context *ctx, struct ubus_object *obj,
-		   struct ubus_request_data *req, const char *method,
-		   struct blob_attr *msg)
-{
-	struct blob_attr *tb[__CONNECT_MAX];
-
-	blobmsg_parse(connect_policy, ARRAY_SIZE(connect_policy), tb,
-		      blob_data(msg), blob_len(msg));
-
-	if (!tb[CONNECT_HOST])
-		return UBUS_STATUS_INVALID_ARGUMENT;
-
-	if (!tb[CONNECT_PORT])
-		return UBUS_STATUS_INVALID_ARGUMENT;
-
-	ssh_reverse_connect(blobmsg_data(tb[CONNECT_HOST]), blobmsg_data(tb[CONNECT_PORT]));
-
-	return 0;
-}
-
 static const struct ubus_method fnd_methods[] = {
-	UBUS_METHOD("connect", fnd_handle_connect, connect_policy),
 };
 
 static struct ubus_object_type main_object_type =
