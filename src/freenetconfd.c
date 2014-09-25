@@ -22,7 +22,6 @@
 
 #include "freenetconfd.h"
 #include "config.h"
-#include "ssh.h"
 #include "ubus.h"
 
 int
@@ -42,9 +41,9 @@ main(int argc, char **argv)
 		goto exit;
 	}
 
-	rc = ssh_netconf_init();
+	rc = netconf_init();
 	if (rc) {
-		ERROR("ssh init failed\n");
+		ERROR("netconf init failed\n");
 		goto exit;
 	}
 
@@ -61,7 +60,7 @@ main(int argc, char **argv)
 
 	rc = EXIT_SUCCESS;
 exit:
-	ssh_netconf_exit();
+	/* FIXME: implement netconf_exit() */
 
 	uloop_done();
 

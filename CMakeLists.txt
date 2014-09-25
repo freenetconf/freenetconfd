@@ -11,8 +11,8 @@ SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 SET(SOURCES
 	src/freenetconfd.c
 	src/freenetconfd.h
-	src/ssh.c
-	src/ssh.h
+	src/netconf.c
+	src/netconf.h
 	src/ubus.c
 	src/ubus.h
 	src/xml.c
