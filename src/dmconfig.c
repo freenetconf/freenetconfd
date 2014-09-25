@@ -714,6 +714,11 @@ static uint32_t dm_list_to_xml(DM2_AVPGRP *grp, node_t **xml_out, int elem_node,
 				return -1;
 			}
 
+			if (!strcmp(parent_name, "firmware-job")) {
+				char *attr_type = "urn:opencpe:firmware-mgmt";
+				roxml_add_node(n, 0, ROXML_ATTR_NODE, "xmlns", attr_type);
+			}
+
 			while (dm_list_to_xml(&container, &n, elem_node, parent_name, filter) == RC_OK);
 
 			break;
@@ -941,6 +946,11 @@ int dm_get_xml_config(node_t *filter_root, node_t *filter_node, node_t **xml_out
 
 				roxml_del_curr(&next_node);
 
+				while (dm_list_to_xml(&answer, &next_node, 0, NULL, node_name) == RC_OK);
+			}
+
+			if (!strcmp("firmware-job", node_name)) {
+				roxml_del_curr(&next_node);
 				while (dm_list_to_xml(&answer, &next_node, 0, NULL, node_name) == RC_OK);
 			}
 
