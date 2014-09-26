@@ -34,7 +34,7 @@ static void connection_close(struct ustream *s);
 
 static struct uloop_fd server = { .cb = connection_accept_cb };
 static struct connection *next_connection = NULL;
-static uint32_t session_id = 0;
+static uint32_t session_id = 1;
 
 enum netconf_msg_step {
 	NETCONF_MSG_STEP_HELLO,
@@ -243,7 +243,7 @@ static void connection_accept_cb(struct uloop_fd *fd, unsigned int events)
 	struct connection *c;
 	unsigned int sl = sizeof(struct sockaddr_in);
 	int sfd, rc;
-	char *buf = NULL;
+	char *hello_message = NULL;
 
 	LOG("received new connection\n");
 
@@ -272,7 +272,7 @@ static void connection_accept_cb(struct uloop_fd *fd, unsigned int events)
 	c->step = NETCONF_MSG_STEP_HELLO;
 
 	DEBUG("crafting hello message\n");
-    rc = method_create_message_hello(session_id++, &buf);
+    rc = method_create_message_hello(session_id++, &hello_message);
     if (rc) {
 		ERROR("failed to create hello message\n");
 		close(sfd);
@@ -283,9 +283,8 @@ static void connection_accept_cb(struct uloop_fd *fd, unsigned int events)
 	next_connection = NULL;
 
 	DEBUG("sending hello message\n");
-	ustream_printf(&c->us.stream, "%s", buf);
-	free(buf);
-	ustream_printf(&c->us.stream, "%s", XML_NETCONF_BASE_1_0_END);
+	ustream_printf(&c->us.stream, "%s%s", hello_message, XML_NETCONF_BASE_1_0_END);
+	free(hello_message);
 }
 
 static void
