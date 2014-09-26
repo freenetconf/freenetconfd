@@ -26,17 +26,6 @@ void config_exit(void);
 struct config_t {
 	char *addr;
 	char *port;
-	char *username;
-	char *password;
-	char *host_ecdsa_key;
-	char *host_dsa_key;
-	char *host_rsa_key;
-	char *authorized_keys_file;
-	uint32_t log_level;
-	uint32_t ssh_timeout_socket;
-	uint32_t ssh_timeout_read;
-	bool ssh_pcap_enable;
-	char *ssh_pcap_file;
 	char *yang_dir;
 } config;
 
