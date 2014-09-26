@@ -38,9 +38,6 @@ static int method_handle_get(struct rpc_data *data);
 static int method_handle_get_config(struct rpc_data *data);
 static int method_handle_edit_config(struct rpc_data *data);
 static int method_handle_copy_config(struct rpc_data *data);
-static int method_handle_commit(struct rpc_data *data);
-static int method_handle_cancel_commit(struct rpc_data *data);
-static int method_handle_discard_changes(struct rpc_data *data);
 static int method_handle_delete_config(struct rpc_data *data);
 static int method_handle_lock(struct rpc_data *data);
 static int method_handle_unlock(struct rpc_data *data);
@@ -60,9 +57,6 @@ const struct rpc_method rpc_methods[] = {
 	{ "edit-config", method_handle_edit_config },
 	{ "copy-config", method_handle_copy_config },
 	{ "delete-config", method_handle_delete_config },
-	{ "commit", method_handle_commit },
-	{ "cancel-commit", method_handle_cancel_commit },
-	{ "discard-changes", method_handle_discard_changes },
 	{ "lock", method_handle_lock },
 	{ "unlock", method_handle_unlock },
 	{ "close-session", method_handle_close_session },
@@ -315,21 +309,6 @@ method_handle_kill_session(struct rpc_data *data)
 	roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", data->message_id);
 
 	return 1;
-}
-
-static int method_handle_commit(struct rpc_data *data)
-{
-	return 0;
-}
-
-static int method_handle_cancel_commit(struct rpc_data *data)
-{
-	return 0;
-}
-
-static int method_handle_discard_changes(struct rpc_data *data)
-{
-	return 0;
 }
 
 static int method_handle_get_schema(struct rpc_data *data)
