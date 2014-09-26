@@ -21,6 +21,7 @@
 #include <libubox/uloop.h>
 
 #include "freenetconfd.h"
+#include "netconf.h"
 #include "config.h"
 #include "ubus.h"
 

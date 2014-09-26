@@ -18,6 +18,7 @@ SET(SOURCES
 	src/xml.c
 	src/xml.h
 	src/config.c
+	src/config.h
 )
 
 ADD_EXECUTABLE(freenetconfd ${SOURCES})

@@ -82,7 +82,7 @@ static void notify_read(struct ustream *s, int bytes)
 
 	do {
 		data = ustream_get_read_buf(s, &data_len);
-		if (!data) break; 
+		if (!data) break;
 		switch (c->step) {
 		case NETCONF_MSG_STEP_HELLO:
 			DEBUG("handling hello\n");
@@ -155,7 +155,7 @@ static void notify_read(struct ustream *s, int bytes)
 
 			*buf1 = ' ';
 			c->msg_len = strtoull(data, NULL, 10);
-			DEBUG("expecting incoming message lenght: %lld\n", c->msg_len);
+			DEBUG("expecting incoming message lenght: %" PRIu64 "\n", c->msg_len);
 
 			ustream_consume(s, buf2 + 1 - data);
 			c->step = NETCONF_MSG_STEP_DATA_1;
@@ -247,8 +247,9 @@ static void connection_accept_cb(struct uloop_fd *fd, unsigned int events)
 
 	LOG("received new connection\n");
 
-	if (!next_connection)
+	if (!next_connection) {
 		next_connection = calloc(1, sizeof(*next_connection));
+	}
 
 	if (!next_connection) {
 		ERROR("not enough memory to accept connection\n");
@@ -271,8 +272,8 @@ static void connection_accept_cb(struct uloop_fd *fd, unsigned int events)
 	c->step = NETCONF_MSG_STEP_HELLO;
 
 	DEBUG("crafting hello message\n");
-        rc = xml_create_message_hello(session_id++, &buf);
-        if (rc) {
+    rc = xml_create_message_hello(session_id++, &buf);
+    if (rc) {
 		ERROR("failed to create hello message\n");
 		close(sfd);
 		return;
@@ -296,8 +297,9 @@ connection_close(struct ustream *s)
 	int data_len;
 
 	data = ustream_get_read_buf(s, &data_len);
-	if (data)
+	if (data) {
 		ustream_consume(s, data_len);
+	}
 
 	ustream_set_read_blocked(s, true);
 

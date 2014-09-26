@@ -20,6 +20,7 @@
 #define PROJECT_NAME "freenetconfd"
 
 #include <syslog.h>
+#include <stdio.h>
 
 #define DEBUG(fmt, ...) do { \
 		fprintf(stderr, "freenetconfd: %s(%d): " fmt, __func__, __LINE__, ## __VA_ARGS__); \

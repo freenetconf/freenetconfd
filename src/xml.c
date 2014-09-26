@@ -73,7 +73,7 @@ const struct rpc_method rpc_methods[] = {
  * xml_analyze_message_hello() - analyze rpc hello message
  *
  * @char*:	xml message for parsing
- * @int:	rpc 'base' of the message we deduce from message
+ * @int*:	netconf 'base' we deduce from message
  *
  * Checks if rpc message is a valid hello message and parse rcp base version
  * client supports.
