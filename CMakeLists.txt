@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.6)
 PROJECT(freenetconfd)
 #ADD_DEFINITIONS(-Os -Wall -Werror --std=gnu99 -Wmissing-declarations)
 ADD_DEFINITIONS(-Os -Wall --std=gnu99 -Wmissing-declarations -D_GNU_SOURCE)
+INCLUDE_DIRECTORIES(include)
 
 FILE(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
@@ -17,6 +18,8 @@ SET(SOURCES
 	src/ubus.h
 	src/methods.c
 	src/methods.h
+	src/modules.c
+	src/modules.h
 	src/config.c
 	src/config.h
 	src/netconf.c
@@ -44,5 +47,7 @@ TARGET_LINK_LIBRARIES(freenetconfd ${LIBROXML_LIBRARIES})
 FIND_PACKAGE(UCI REQUIRED)
 INCLUDE_DIRECTORIES(${UCI_INCLUDE_DIR})
 TARGET_LINK_LIBRARIES(freenetconfd ${UCI_LIBRARIES})
+
+TARGET_LINK_LIBRARIES(freenetconfd  ${CMAKE_DL_LIBS})
 
 INSTALL(TARGETS freenetconfd RUNTIME DESTINATION bin)

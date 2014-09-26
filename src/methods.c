@@ -23,16 +23,12 @@
 #include "freenetconfd.h"
 #include "messages.h"
 #include "config.h"
+#include "modules.h"
+#include "netconf.h"
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
 #endif
-
-
-struct rpc_data {
-	node_t *in;
-	node_t *out;
-};
 
 static int method_handle_get(struct rpc_data *data);
 static int method_handle_get_config(struct rpc_data *data);
@@ -44,11 +40,6 @@ static int method_handle_unlock(struct rpc_data *data);
 static int method_handle_close_session(struct rpc_data *data);
 static int method_handle_kill_session(struct rpc_data *data);
 static int method_handle_get_schema(struct rpc_data *data);
-
-struct rpc_method {
-	const char *name;
-	int (*handler) (struct rpc_data *data);
-};
 
 const struct rpc_method rpc_methods[] = {
 	{ "get", method_handle_get },
@@ -94,8 +85,7 @@ int method_analyze_message_hello(char *xml_in, int *base)
 		char *value = roxml_get_content(nodes[i], NULL, 0, NULL);
 		if (strcmp(value, "urn:ietf:params:netconf:base:1.1") == 0) {
 			tbase = 1;
-		}
-		else if(strcmp(value, "urn:ietf:params:netconf:base:1.0") == 0) {
+		} else if(strcmp(value, "urn:ietf:params:netconf:base:1.0") == 0) {
 			tbase = 0;
 		}
 	}
@@ -106,7 +96,9 @@ int method_analyze_message_hello(char *xml_in, int *base)
 	*base = tbase;
 
 	rc = 0;
+
 exit:
+
 	roxml_release(RELEASE_ALL);
 	roxml_close(root);
 
@@ -173,11 +165,10 @@ exit:
  */
 int method_handle_message_rpc(char *xml_in, char **xml_out)
 {
-	DEBUG("\n%s\n", xml_in);
-
 	int rc = -1;
-	char *operation_name = 0;
-	struct rpc_data data = { NULL, NULL };
+	char *operation_name = NULL;
+	char *namespace = NULL;
+	struct rpc_data data = { NULL, NULL, NULL, 0};
 
 	node_t *root_in = roxml_load_buf(xml_in);
 	if (!root_in) goto exit;
@@ -188,19 +179,18 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 	node_t *operation = roxml_get_chld(rpc_in, NULL, 0);
 	if (!operation) goto exit;
 
+	node_t *n_namespace = roxml_get_ns(operation);
+	if (!n_namespace) goto exit;
+
 	operation_name = roxml_get_name(operation, NULL, 0);
+	namespace = roxml_get_content(n_namespace, NULL, 0, NULL);
 
-	DEBUG("received rpc '%s'\n", operation_name);
-
-	const struct rpc_method *method = NULL;
-	for (int i = 0; i < ARRAY_SIZE(rpc_methods); i++) {
-		if (!strcmp(operation_name, rpc_methods[i].name)) {
-			method = &rpc_methods[i];
-			break;
-		}
+	if (!operation_name || !namespace) {
+		ERROR("unable to extract rpc and namespace\n");
+		goto exit;
 	}
 
-	if (!method) goto exit;
+	DEBUG("received rpc '%s' (%s)\n", operation_name, namespace);
 
 	data.out = roxml_load_buf(XML_NETCONF_REPLY_TEMPLATE);
 	node_t *rpc_out = roxml_get_chld(data.out, NULL, 0);
@@ -226,7 +216,68 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 	data.in = operation;
 	data.out = rpc_out;
 
-	rc = method->handler(&data);
+	const struct rpc_method *method = NULL;
+	for (int i = 0; i < ARRAY_SIZE(rpc_methods); i++) {
+		if (!strcmp(operation_name, rpc_methods[i].query)) {
+			method = &rpc_methods[i];
+			break;
+		}
+	}
+
+	/* process modules */
+	if (!method) {
+		int found = 0;
+		struct list_head *modules = get_modules();
+		struct module_list *elem;
+		list_for_each_entry(elem, modules, list) {
+			if (found) break;
+			DEBUG("module: %s\n", elem->name);
+			for (int i = 0; i < elem->m->rpc_count; i++) {
+				if (!strcmp(elem->m->rpcs[i].query, operation_name) &&
+					!strcmp(elem->m->namespace, namespace)) {
+					DEBUG("method found in module: %s (%s)\n", elem->m->rpcs[i].query, elem->m->namespace);
+					method = &elem->m->rpcs[i];
+					found = 1;
+					break;
+				}
+			}
+		}
+	}
+	if (!method) {
+		ERROR("method not supported\n");
+		data.error = netconf_rpc_error("method not supported", RPC_ERROR_TAG_OPERATION_NOT_SUPPORTED, 0, 0);
+		rc = RPC_ERROR;
+	} else {
+		rc = method->handler(&data);
+	}
+
+	switch (rc) {
+		case RPC_OK:
+			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "ok", NULL);
+			rc = 0;
+		break;
+
+		case RPC_OK_CLOSE:
+			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "ok", NULL);
+			rc = 1;
+		break;
+
+		case RPC_DATA:
+			rc = 0;
+		break;
+
+		case RPC_ERROR:
+
+			if (!data.error)
+				data.error = netconf_rpc_error("UNKNOWN ERROR", 0, 0, 0);
+
+			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "rpc_error", data.error);
+
+			free(data.error);
+
+			rc = 0;
+		break;
+	}
 
 exit:
 
@@ -244,73 +295,137 @@ exit:
 static int
 method_handle_get(struct rpc_data *data)
 {
-	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "data", NULL);
+	node_t *n_data = roxml_add_node(data->out, 0, ROXML_ELM_NODE, "data", NULL);
 
-	return 0;
+	int nb = 0;
+	node_t **n_filter, *n;
+
+	struct list_head *modules = get_modules();
+	struct module_list *elem;
+
+	if ((n_filter = roxml_xpath(data->in, "//filter",&nb))) {
+		nb = roxml_get_chld_nb(n_filter[0]);
+
+		/* empty filter */
+		if (!nb)
+			return RPC_DATA;
+
+		while(--nb >= 0) {
+			n = roxml_get_chld(n_filter[0], NULL, nb);
+			char *module = roxml_get_name(n, NULL, 0);
+			char *namespace = roxml_get_content(roxml_get_ns(n), NULL, 0, NULL);
+			DEBUG("filter for module: %s (%s)\n", module, namespace);
+
+			list_for_each_entry(elem, modules, list) {
+				DEBUG("module: %s\n", elem->name);
+				if (!strcmp(namespace, elem->m->namespace)) {
+					DEBUG("calling module: %s (%s) \n", module, namespace);
+					struct rpc_data d = {n, n_data, NULL, 1};
+					elem->m->get(&d);
+					break;
+				}
+			}
+		}
+	} else {
+		DEBUG("no filter requested, processing all modules\n");
+		list_for_each_entry(elem, modules, list) {
+			DEBUG("calling module: %s\n", elem->name);
+			n=data->in;
+			struct rpc_data d = {n, n_data, NULL, 0};
+			elem->m->get(&d);
+		}
+	}
+
+	return RPC_DATA;
 }
 
 static int
 method_handle_get_config(struct rpc_data *data)
 {
-	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "data", NULL);
+	node_t *n_data = roxml_add_node(data->out, 0, ROXML_ELM_NODE, "data", NULL);
 
-	return 0;
+	int nb = 0;
+	node_t **n_filter, *n;
+
+	struct list_head *modules = get_modules();
+	struct module_list *elem;
+
+	if ((n_filter = roxml_xpath(data->in, "//filter",&nb))) {
+		nb = roxml_get_chld_nb(n_filter[0]);
+
+		/* empty filter */
+		if (!nb)
+			return RPC_DATA;
+
+		while(--nb >= 0) {
+			n = roxml_get_chld(n_filter[0], NULL, nb);
+			char *module = roxml_get_name(n, NULL, 0);
+			char *namespace = roxml_get_content(roxml_get_ns(n), NULL, 0, NULL);
+			DEBUG("filter for module: %s (%s)\n", module, namespace);
+
+			list_for_each_entry(elem, modules, list) {
+				DEBUG("module: %s\n", elem->name);
+				if (!strcmp(namespace, elem->m->namespace)) {
+					DEBUG("calling module: %s (%s) \n", module, namespace);
+					struct rpc_data d = {n, n_data, NULL, 1};
+					elem->m->get_config(&d);
+					break;
+				}
+			}
+		}
+	} else {
+		DEBUG("no filter requested, processing all modules\n");
+		list_for_each_entry(elem, modules, list) {
+			DEBUG("calling module: %s\n", elem->name);
+			n=data->in;
+			struct rpc_data d = {n, n_data, NULL, 0};
+			elem->m->get_config(&d);
+		}
+	}
+
+	return RPC_DATA;
 }
 
 static int
 method_handle_edit_config(struct rpc_data *data)
 {
-	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "ok", NULL);
-
-	return 0;
+	return RPC_OK;
 }
 
 static int
 method_handle_copy_config(struct rpc_data *data)
 {
-	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "ok", NULL);
-
-	return 0;
+	return RPC_OK;
 }
 
 static int
 method_handle_delete_config(struct rpc_data *data)
 {
-	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "ok", NULL);
-
-	return 0;
+	return RPC_OK;
 }
 
 static int
 method_handle_lock(struct rpc_data *data)
 {
-	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "ok", NULL);
-
-	return 0;
+	return RPC_OK;
 }
 
 static int
 method_handle_unlock(struct rpc_data *data)
 {
-	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "ok", NULL);
-
-	return 0;
+	return RPC_OK;
 }
 
 static int
 method_handle_close_session(struct rpc_data *data)
 {
-	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "ok", NULL);
-
-	return 1;
+	return RPC_OK_CLOSE;
 }
 
 static int
 method_handle_kill_session(struct rpc_data *data)
 {
-	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "ok", NULL);
-
-	return 1;
+	return RPC_OK_CLOSE;
 }
 
 static int method_handle_get_schema(struct rpc_data *data)
@@ -427,6 +542,6 @@ exit:
 
 	free(yang_module_content);
 
-	return 0;
+	return RPC_DATA;
 }
 

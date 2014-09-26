@@ -23,6 +23,7 @@
 #include "freenetconfd.h"
 #include "connection.h"
 #include "config.h"
+#include "modules.h"
 #include "ubus.h"
 
 int
@@ -54,6 +55,12 @@ main(int argc, char **argv)
 		goto exit;
 	}
 
+	rc = modules_init();
+	if (rc) {
+		ERROR("module loading failed\n");
+		goto exit;
+	}
+
 	LOG("%s is accepting connections on '%s:%s'\n", PROJECT_NAME, config.addr, config.port);
 
 	/* main loop */
@@ -68,6 +75,8 @@ exit:
 	ubus_exit();
 
 	config_exit();
+
+	modules_unload();
 
 	return rc;
 }

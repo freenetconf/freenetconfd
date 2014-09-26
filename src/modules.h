@@ -1,9 +1,9 @@
 /*
- * Copyright (C) 2014 Sartura, Ltd.
  * Copyright (C) 2014 Cisco Systems, Inc.
  *
- * Author: Luka Perkov <luka.perkov@sartura.hr>
  * Author: Petar Koretic <petar.koretic@sartura.hr>
+ * Author: Luka Perkov <luka.perkov@sartura.hr>
+ * Author: Zvonimir Fras <zvonimir.fras@sartura.hr>
  *
  * freenetconfd is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,20 +14,17 @@
  * along with freenetconfd. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __CONFIG_H__
-#define __CONFIG_H__
+#ifndef __METHODS_H_
+#define __METHODS_H_
 
-#include <inttypes.h>
-#include <stdbool.h>
+#include <freenetconfd/plugin.h>
+#include <libubox/list.h>
 
-int config_load(void);
-void config_exit(void);
+int modules_load(char *modules_path, struct list_head *modules);
+int modules_unload();
+int modules_reload(char *module_name);
 
-struct config_t {
-	char *addr;
-	char *port;
-	char *yang_dir;
-	char *modules_dir;
-} config;
+int modules_init();
+struct list_head *get_modules();
 
-#endif /* __CONFIG_H__ */
+#endif /* __METHODS_H_ */

@@ -30,6 +30,7 @@ enum {
 	ADDR,
 	PORT,
 	YANG_DIR,
+	MODULES_DIR,
 	__OPTIONS_COUNT
 };
 
@@ -37,6 +38,7 @@ const struct blobmsg_policy config_policy[__OPTIONS_COUNT] = {
 	[ADDR] = { .name = "addr", .type = BLOBMSG_TYPE_STRING },
 	[PORT] = { .name = "port", .type = BLOBMSG_TYPE_STRING },
 	[YANG_DIR] = { .name = "yang_dir", .type = BLOBMSG_TYPE_STRING },
+	[MODULES_DIR] = { .name = "modules_dir", .type = BLOBMSG_TYPE_STRING }
 };
 const struct uci_blob_param_list config_attr_list = {
 	.n_params = __OPTIONS_COUNT,
@@ -75,6 +77,7 @@ int config_load(void)
 	config.addr = NULL;
 	config.port = NULL;
 	config.yang_dir = NULL;
+	config.modules_dir = NULL;
 
 	if ((c = tb[ADDR]))
 		config.addr = strdup(blobmsg_get_string(c));
@@ -84,6 +87,16 @@ int config_load(void)
 
 	if ((c = tb[YANG_DIR]))
 		config.yang_dir = strdup(blobmsg_get_string(c));
+
+	if ((c = tb[MODULES_DIR]))
+		config.modules_dir = strdup(blobmsg_get_string(c));
+
+	if (!(config.modules_dir)) {
+		ERROR("modules directory must be set\n");
+		uci_unload(uci, conf);
+		uci_free_context(uci);
+		return -1;
+	}
 
 	blob_buf_free(&buf);
 	uci_unload(uci, conf);
@@ -97,4 +110,5 @@ void config_exit(void)
 	free(config.addr);
 	free(config.port);
 	free(config.yang_dir);
+	free(config.modules_dir);
 }

@@ -86,7 +86,7 @@ char* netconf_rpc_error(char *msg, rpc_error_tag_t rpc_error_tag, rpc_error_type
 	char *type = "rpc";
 	char *severity = "error";
 
-	char *rpc_error = "<rpc_error>";
+	char *rpc_error = NULL;
 
 	// truncate too big messages
 	if (!msg || strlen(msg) > 400)
@@ -101,12 +101,10 @@ char* netconf_rpc_error(char *msg, rpc_error_tag_t rpc_error_tag, rpc_error_type
 	if (rpc_error_severity > 0 && rpc_error_severity < __RPC_ERROR_SEVERITY_COUNT)
 		tag = rpc_error_severities[rpc_error_severity];
 
-	asprintf(&rpc_error, "%s<error_type>%s</error_type>", rpc_error, type);
+	asprintf(&rpc_error, "<error_type>%s</error_type>", type);
 	asprintf(&rpc_error, "%s<error_tag>%s</error_tag>", rpc_error, tag);
 	asprintf(&rpc_error, "%s<error_severity>%s</error_severity>", rpc_error, severity);
 	asprintf(&rpc_error, "%s<error_message xml:lang=\"en\">%s</error_message>" ,rpc_error, msg);
-
-	asprintf(&rpc_error, "%s</rpc_error>",rpc_error);
 
 	return rpc_error;
 }

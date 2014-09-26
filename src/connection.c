@@ -271,8 +271,8 @@ static void connection_accept_cb(struct uloop_fd *fd, unsigned int events)
 	c->step = NETCONF_MSG_STEP_HELLO;
 
 	DEBUG("crafting hello message\n");
-    rc = method_create_message_hello(&hello_message);
-    if (rc) {
+	rc = method_create_message_hello(&hello_message);
+	if (rc) {
 		ERROR("failed to create hello message\n");
 		close(sfd);
 		return;
