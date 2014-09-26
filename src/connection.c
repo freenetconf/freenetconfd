@@ -26,8 +26,8 @@
 #include "config.h"
 #include "freenetconfd.h"
 #include "messages.h"
-#include "netconf.h"
-#include "xml.h"
+#include "connection.h"
+#include "methods.h"
 
 static void connection_accept_cb(struct uloop_fd *fd, unsigned int events);
 static void connection_close(struct ustream *s);
@@ -108,7 +108,7 @@ static void notify_read(struct ustream *s, int bytes)
 
 			*buf2 = '\0';
 
-			rc = xml_analyze_message_hello(buf1, &c->base);
+			rc = method_analyze_message_hello(buf1, &c->base);
 			if (rc) {
 				connection_close(s);
 				return;
@@ -201,7 +201,7 @@ static void notify_read(struct ustream *s, int bytes)
 			*buf2 = '\0';
 
 			DEBUG("examining message\n");
-			rc = xml_handle_message_rpc(data, &buf);
+			rc = method_handle_message_rpc(data, &buf);
 			DEBUG("buf message %s\n", buf);
 			if (rc == -1) {
 				/* FIXME */
@@ -272,7 +272,7 @@ static void connection_accept_cb(struct uloop_fd *fd, unsigned int events)
 	c->step = NETCONF_MSG_STEP_HELLO;
 
 	DEBUG("crafting hello message\n");
-    rc = xml_create_message_hello(session_id++, &buf);
+    rc = method_create_message_hello(session_id++, &buf);
     if (rc) {
 		ERROR("failed to create hello message\n");
 		close(sfd);
@@ -309,7 +309,7 @@ connection_close(struct ustream *s)
 }
 
 int
-netconf_init()
+server_init()
 {
 	server.fd = usock(USOCK_TCP | USOCK_SERVER, config.addr, config.port);
 	if (server.fd < 0) {

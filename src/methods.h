@@ -14,11 +14,11 @@
  * along with freenetconfd. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __XML_H__
-#define __XML_H__
+#ifndef __METHODS_H__
+#define __METHODS_H__
 
-int xml_analyze_message_hello(char *xml_in, int *base);
-int xml_create_message_hello(uint32_t session_id, char **xml_out);
-int xml_handle_message_rpc(char *xml_in, char **xml_out);
+int method_analyze_message_hello(char *method_in, int *base);
+int method_create_message_hello(uint32_t session_id, char **method_out);
+int method_handle_message_rpc(char *method_in, char **method_out);
 
-#endif /* __XML_H__ */
+#endif /* __METHODS__ */

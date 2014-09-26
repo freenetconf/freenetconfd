@@ -21,7 +21,7 @@
 #include <libubox/uloop.h>
 
 #include "freenetconfd.h"
-#include "netconf.h"
+#include "connection.h"
 #include "config.h"
 #include "ubus.h"
 
@@ -42,9 +42,9 @@ main(int argc, char **argv)
 		goto exit;
 	}
 
-	rc = netconf_init();
+	rc = server_init();
 	if (rc) {
-		ERROR("netconf init failed\n");
+		ERROR("server init failed\n");
 		goto exit;
 	}
 

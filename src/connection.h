@@ -13,9 +13,9 @@
  * along with freenetconfd. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __NETCONF_H__
-#define __NETCONF_H__
+#ifndef __CONNECTION_H__
+#define __CONNECTION_H__
 
-int netconf_init();
+int server_init();
 
-#endif /* __NETCONF_H__ */
+#endif /* __CONNECTION_H__ */

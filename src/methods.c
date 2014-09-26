@@ -19,7 +19,7 @@
 #include <roxml.h>
 #include <stdint.h>
 
-#include "xml.h"
+#include "methods.h"
 #include "freenetconfd.h"
 #include "messages.h"
 #include "config.h"
@@ -34,19 +34,19 @@ struct rpc_data {
 	node_t *out;
 };
 
-static int xml_handle_get(struct rpc_data *data);
-static int xml_handle_get_config(struct rpc_data *data);
-static int xml_handle_edit_config(struct rpc_data *data);
-static int xml_handle_copy_config(struct rpc_data *data);
-static int xml_handle_commit(struct rpc_data *data);
-static int xml_handle_cancel_commit(struct rpc_data *data);
-static int xml_handle_discard_changes(struct rpc_data *data);
-static int xml_handle_delete_config(struct rpc_data *data);
-static int xml_handle_lock(struct rpc_data *data);
-static int xml_handle_unlock(struct rpc_data *data);
-static int xml_handle_close_session(struct rpc_data *data);
-static int xml_handle_kill_session(struct rpc_data *data);
-static int xml_handle_get_schema(struct rpc_data *data);
+static int method_handle_get(struct rpc_data *data);
+static int method_handle_get_config(struct rpc_data *data);
+static int method_handle_edit_config(struct rpc_data *data);
+static int method_handle_copy_config(struct rpc_data *data);
+static int method_handle_commit(struct rpc_data *data);
+static int method_handle_cancel_commit(struct rpc_data *data);
+static int method_handle_discard_changes(struct rpc_data *data);
+static int method_handle_delete_config(struct rpc_data *data);
+static int method_handle_lock(struct rpc_data *data);
+static int method_handle_unlock(struct rpc_data *data);
+static int method_handle_close_session(struct rpc_data *data);
+static int method_handle_kill_session(struct rpc_data *data);
+static int method_handle_get_schema(struct rpc_data *data);
 
 struct rpc_method {
 	const char *name;
@@ -54,23 +54,23 @@ struct rpc_method {
 };
 
 const struct rpc_method rpc_methods[] = {
-	{ "get", xml_handle_get },
-	{ "get-config", xml_handle_get_config },
-	{ "get-schema", xml_handle_get_schema },
-	{ "edit-config", xml_handle_edit_config },
-	{ "copy-config", xml_handle_copy_config },
-	{ "delete-config", xml_handle_delete_config },
-	{ "commit", xml_handle_commit },
-	{ "cancel-commit", xml_handle_cancel_commit },
-	{ "discard-changes", xml_handle_discard_changes },
-	{ "lock", xml_handle_lock },
-	{ "unlock", xml_handle_unlock },
-	{ "close-session", xml_handle_close_session },
-	{ "kill-session", xml_handle_kill_session },
+	{ "get", method_handle_get },
+	{ "get-config", method_handle_get_config },
+	{ "get-schema", method_handle_get_schema },
+	{ "edit-config", method_handle_edit_config },
+	{ "copy-config", method_handle_copy_config },
+	{ "delete-config", method_handle_delete_config },
+	{ "commit", method_handle_commit },
+	{ "cancel-commit", method_handle_cancel_commit },
+	{ "discard-changes", method_handle_discard_changes },
+	{ "lock", method_handle_lock },
+	{ "unlock", method_handle_unlock },
+	{ "close-session", method_handle_close_session },
+	{ "kill-session", method_handle_kill_session },
 };
 
 /*
- * xml_analyze_message_hello() - analyze rpc hello message
+ * method_analyze_message_hello() - analyze rpc hello message
  *
  * @char*:	xml message for parsing
  * @int*:	netconf 'base' we deduce from message
@@ -78,7 +78,7 @@ const struct rpc_method rpc_methods[] = {
  * Checks if rpc message is a valid hello message and parse rcp base version
  * client supports.
  */
-int xml_analyze_message_hello(char *xml_in, int *base)
+int method_analyze_message_hello(char *xml_in, int *base)
 {
 	int rc = -1, num_nodes = 0;
 	node_t **nodes;
@@ -119,7 +119,7 @@ exit:
 	return rc;
 }
 
-int xml_create_message_hello(uint32_t session_id, char **xml_out)
+int method_create_message_hello(uint32_t session_id, char **xml_out)
 {
 	int rc = -1, len;
 	char c_session_id[BUFSIZ];
@@ -163,7 +163,7 @@ exit:
 }
 
 /*
- * xml_handle_message - handle all rpc messages
+ * method_handle_message - handle all rpc messages
  *
  * @char*:	xml message for parsing
  * @char**:	xml message we create for response
@@ -171,7 +171,7 @@ exit:
  * Get netconf method from rpc message and call apropriate rpc method which
  * will parse and return response message.
  */
-int xml_handle_message_rpc(char *xml_in, char **xml_out)
+int method_handle_message_rpc(char *xml_in, char **xml_out)
 {
 	int rc = -1;
 	char *message_id = 0;
@@ -226,7 +226,7 @@ exit:
 }
 
 static int
-xml_handle_get(struct rpc_data *data)
+method_handle_get(struct rpc_data *data)
 {
 	data->out = roxml_load_buf(XML_NETCONF_REPLY_TEMPLATE);
 	node_t *root = roxml_get_chld(data->out, NULL, 0);
@@ -237,7 +237,7 @@ xml_handle_get(struct rpc_data *data)
 }
 
 static int
-xml_handle_get_config(struct rpc_data *data)
+method_handle_get_config(struct rpc_data *data)
 {
 	data->out = roxml_load_buf(XML_NETCONF_REPLY_TEMPLATE);
 	node_t *root = roxml_get_chld(data->out, NULL, 0);
@@ -248,7 +248,7 @@ xml_handle_get_config(struct rpc_data *data)
 }
 
 static int
-xml_handle_edit_config(struct rpc_data *data)
+method_handle_edit_config(struct rpc_data *data)
 {
 	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
 	node_t *root = roxml_get_chld(data->out, NULL, 0);
@@ -258,7 +258,7 @@ xml_handle_edit_config(struct rpc_data *data)
 }
 
 static int
-xml_handle_copy_config(struct rpc_data *data)
+method_handle_copy_config(struct rpc_data *data)
 {
 	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
 	node_t *root = roxml_get_chld(data->out, NULL, 0);
@@ -268,7 +268,7 @@ xml_handle_copy_config(struct rpc_data *data)
 }
 
 static int
-xml_handle_delete_config(struct rpc_data *data)
+method_handle_delete_config(struct rpc_data *data)
 {
 	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
 	node_t *root = roxml_get_chld(data->out, NULL, 0);
@@ -278,7 +278,7 @@ xml_handle_delete_config(struct rpc_data *data)
 }
 
 static int
-xml_handle_lock(struct rpc_data *data)
+method_handle_lock(struct rpc_data *data)
 {
 	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
 	node_t *root = roxml_get_chld(data->out, NULL, 0);
@@ -288,7 +288,7 @@ xml_handle_lock(struct rpc_data *data)
 }
 
 static int
-xml_handle_unlock(struct rpc_data *data)
+method_handle_unlock(struct rpc_data *data)
 {
 	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
 	node_t *root = roxml_get_chld(data->out, NULL, 0);
@@ -298,7 +298,7 @@ xml_handle_unlock(struct rpc_data *data)
 }
 
 static int
-xml_handle_close_session(struct rpc_data *data)
+method_handle_close_session(struct rpc_data *data)
 {
 	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
 	node_t *root = roxml_get_chld(data->out, NULL, 0);
@@ -308,7 +308,7 @@ xml_handle_close_session(struct rpc_data *data)
 }
 
 static int
-xml_handle_kill_session(struct rpc_data *data)
+method_handle_kill_session(struct rpc_data *data)
 {
 	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
 	node_t *root = roxml_get_chld(data->out, NULL, 0);
@@ -317,22 +317,22 @@ xml_handle_kill_session(struct rpc_data *data)
 	return 1;
 }
 
-static int xml_handle_commit(struct rpc_data *data)
+static int method_handle_commit(struct rpc_data *data)
 {
 	return 0;
 }
 
-static int xml_handle_cancel_commit(struct rpc_data *data)
+static int method_handle_cancel_commit(struct rpc_data *data)
 {
 	return 0;
 }
 
-static int xml_handle_discard_changes(struct rpc_data *data)
+static int method_handle_discard_changes(struct rpc_data *data)
 {
 	return 0;
 }
 
-static int xml_handle_get_schema(struct rpc_data *data)
+static int method_handle_get_schema(struct rpc_data *data)
 {
 	FILE *yang_module = NULL;
 	char yang_module_filename[BUFSIZ];
