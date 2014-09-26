@@ -19,6 +19,8 @@ SET(SOURCES
 	src/methods.h
 	src/config.c
 	src/config.h
+	src/netconf.c
+	src/netconf.h
 )
 
 ADD_EXECUTABLE(freenetconfd ${SOURCES})

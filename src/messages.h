@@ -53,4 +53,6 @@
  "</rpc-error>" \
 "</rpc-reply>"
 
+#define YANG_NAMESPACE "urn:ietf:params:xml:ns:yang"
+
 #endif /* _FREENETCONFD_MESSAGES_H__ */
