@@ -23,7 +23,7 @@
 #include <stdio.h>
 
 #define DEBUG(fmt, ...) do { \
-		fprintf(stderr, "freenetconfd: %s(%d): " fmt, __func__, __LINE__, ## __VA_ARGS__); \
+		fprintf(stderr, "freenetconfd: %s(%d): " fmt, __FILE__, __LINE__, ## __VA_ARGS__); \
 	} while (0)
 
 #define LOG(fmt, ...) do { \
