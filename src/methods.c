@@ -30,7 +30,6 @@
 
 
 struct rpc_data {
-	char *message_id;
 	node_t *in;
 	node_t *out;
 };
@@ -159,6 +158,7 @@ int method_create_message_hello(char **xml_out)
 exit:
 
 	roxml_close(root);
+
 	return rc;
 }
 
@@ -173,24 +173,19 @@ exit:
  */
 int method_handle_message_rpc(char *xml_in, char **xml_out)
 {
+	DEBUG("\n%s\n", xml_in);
+
 	int rc = -1;
-	char *message_id = 0;
 	char *operation_name = 0;
-	struct rpc_data data = {};
+	struct rpc_data data = { NULL, NULL };
 
-	node_t *root = roxml_load_buf(xml_in);
-	if (!root) goto exit;
+	node_t *root_in = roxml_load_buf(xml_in);
+	if (!root_in) goto exit;
 
-	node_t *rpc = roxml_get_chld(root, NULL, 0);
-	if (!rpc) goto exit;
+	node_t *rpc_in = roxml_get_chld(root_in, NULL, 0);
+	if (!rpc_in) goto exit;
 
-	node_t *rpc_message_id = roxml_get_attr(rpc, "message-id", 0);
-	if (!rpc_message_id) goto exit;
-
-	message_id = roxml_get_content(rpc_message_id, NULL, 0, NULL);
-	if (!message_id) goto exit;
-
-	node_t *operation = roxml_get_chld(rpc, NULL, 0);
+	node_t *operation = roxml_get_chld(rpc_in, NULL, 0);
 	if (!operation) goto exit;
 
 	operation_name = roxml_get_name(operation, NULL, 0);
@@ -207,20 +202,41 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 
 	if (!method) goto exit;
 
-	data.message_id = message_id;
+	data.out = roxml_load_buf(XML_NETCONF_REPLY_TEMPLATE);
+	node_t *rpc_out = roxml_get_chld(data.out, NULL, 0);
+
+	/* copy all arguments from rpc to rpc-reply */
+	int args = roxml_get_attr_nb(rpc_in);
+	for (int i = 0; i < args; i++) {
+
+		int flags = ROXML_ATTR_NODE;
+		node_t *n_arg = roxml_get_attr(rpc_in, NULL, i);
+
+		char *name = roxml_get_name(n_arg, NULL, 0);
+
+		// default namespace
+		if (!strcmp(name, ""))
+			flags |= ROXML_NS_NODE;
+
+		char *value = roxml_get_content(n_arg, NULL, 0, NULL);
+
+		roxml_add_node(rpc_out, 0, flags, name, value);
+	}
+
 	data.in = operation;
-	data.out = NULL;
+	data.out = rpc_out;
 
 	rc = method->handler(&data);
 
 exit:
+
 	if (data.out) {
 		roxml_commit_changes(data.out, NULL, xml_out, 0);
 		roxml_close(data.out);
 	}
 
 	roxml_release(RELEASE_ALL);
-	roxml_close(root);
+	roxml_close(root_in);
 
 	return rc;
 }
@@ -228,10 +244,7 @@ exit:
 static int
 method_handle_get(struct rpc_data *data)
 {
-	data->out = roxml_load_buf(XML_NETCONF_REPLY_TEMPLATE);
-	node_t *root = roxml_get_chld(data->out, NULL, 0);
-	roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", data->message_id);
-	roxml_add_node(root, 0, ROXML_ELM_NODE, "data", NULL);
+	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "data", NULL);
 
 	return 0;
 }
@@ -239,10 +252,7 @@ method_handle_get(struct rpc_data *data)
 static int
 method_handle_get_config(struct rpc_data *data)
 {
-	data->out = roxml_load_buf(XML_NETCONF_REPLY_TEMPLATE);
-	node_t *root = roxml_get_chld(data->out, NULL, 0);
-	roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", data->message_id);
-	roxml_add_node(root, 0, ROXML_ELM_NODE, "data", NULL);
+	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "data", NULL);
 
 	return 0;
 }
@@ -250,9 +260,7 @@ method_handle_get_config(struct rpc_data *data)
 static int
 method_handle_edit_config(struct rpc_data *data)
 {
-	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
-	node_t *root = roxml_get_chld(data->out, NULL, 0);
-	roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", data->message_id);
+	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "ok", NULL);
 
 	return 0;
 }
@@ -260,9 +268,7 @@ method_handle_edit_config(struct rpc_data *data)
 static int
 method_handle_copy_config(struct rpc_data *data)
 {
-	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
-	node_t *root = roxml_get_chld(data->out, NULL, 0);
-	roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", data->message_id);
+	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "ok", NULL);
 
 	return 0;
 }
@@ -270,9 +276,7 @@ method_handle_copy_config(struct rpc_data *data)
 static int
 method_handle_delete_config(struct rpc_data *data)
 {
-	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
-	node_t *root = roxml_get_chld(data->out, NULL, 0);
-	roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", data->message_id);
+	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "ok", NULL);
 
 	return 0;
 }
@@ -280,9 +284,7 @@ method_handle_delete_config(struct rpc_data *data)
 static int
 method_handle_lock(struct rpc_data *data)
 {
-	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
-	node_t *root = roxml_get_chld(data->out, NULL, 0);
-	roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", data->message_id);
+	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "ok", NULL);
 
 	return 0;
 }
@@ -290,9 +292,7 @@ method_handle_lock(struct rpc_data *data)
 static int
 method_handle_unlock(struct rpc_data *data)
 {
-	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
-	node_t *root = roxml_get_chld(data->out, NULL, 0);
-	roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", data->message_id);
+	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "ok", NULL);
 
 	return 0;
 }
@@ -300,9 +300,7 @@ method_handle_unlock(struct rpc_data *data)
 static int
 method_handle_close_session(struct rpc_data *data)
 {
-	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
-	node_t *root = roxml_get_chld(data->out, NULL, 0);
-	roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", data->message_id);
+	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "ok", NULL);
 
 	return 1;
 }
@@ -310,9 +308,7 @@ method_handle_close_session(struct rpc_data *data)
 static int
 method_handle_kill_session(struct rpc_data *data)
 {
-	data->out = roxml_load_buf(XML_NETCONF_REPLY_OK_TEMPLATE);
-	node_t *root = roxml_get_chld(data->out, NULL, 0);
-	roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", data->message_id);
+	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "ok", NULL);
 
 	return 1;
 }
@@ -360,10 +356,6 @@ static int method_handle_get_schema(struct rpc_data *data)
 		ERROR("yang format not valid or supported\n");
 		goto exit;
 	}
-
-	data->out = roxml_load_buf(XML_NETCONF_REPLY_TEMPLATE);
-	node_t *root = roxml_get_chld(data->out, NULL, 0);
-	roxml_add_node(root, 0, ROXML_ATTR_NODE, "message-id", data->message_id);
 
 	snprintf(yang_module_filename, BUFSIZ, "%s/%s", config.yang_dir, c_identifier);
 	if (c_version) {
@@ -416,7 +408,7 @@ static int method_handle_get_schema(struct rpc_data *data)
 
 	yang_module_content[pos] = 0;
 
-	node_t *n_schema = roxml_add_node(root, 0, ROXML_ELM_NODE, "data", yang_module_content);
+	node_t *n_schema = roxml_add_node(data->out, 0, ROXML_ELM_NODE, "data", yang_module_content);
 	if (!n_schema) {
 		ERROR("unable to add data node\n");
 		goto exit;
@@ -429,6 +421,7 @@ static int method_handle_get_schema(struct rpc_data *data)
 	}
 
 exit:
+
 	if (yang_module)
 		fclose(yang_module);
 

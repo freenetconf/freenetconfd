@@ -31,13 +31,8 @@
  "</capabilities>" \
 "</hello>"
 
-#define XML_NETCONF_REPLY_OK_TEMPLATE \
-"<rpc-reply xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">" \
- "<ok/>" \
-"</rpc-reply>"
-
 #define XML_NETCONF_REPLY_TEMPLATE \
-"<rpc-reply xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">" \
+"<rpc-reply>" \
 "</rpc-reply>"
 
 #define XML_NETCONF_RPC_ERROR_TEMPLATE \
