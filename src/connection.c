@@ -155,7 +155,7 @@ static void notify_read(struct ustream *s, int bytes)
 
 			*buf1 = ' ';
 			c->msg_len = strtoull(data, NULL, 10);
-			DEBUG("expecting incoming message lenght: %" PRIu64 "\n", c->msg_len);
+			DEBUG("expecting incoming message length: %" PRIu64 "\n", c->msg_len);
 
 			ustream_consume(s, buf2 + 1 - data);
 			c->step = NETCONF_MSG_STEP_DATA_1;
