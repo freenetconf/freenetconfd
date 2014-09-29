@@ -34,7 +34,6 @@ static void connection_close(struct ustream *s);
 
 static struct uloop_fd server = { .cb = connection_accept_cb };
 static struct connection *next_connection = NULL;
-static uint32_t session_id = 1;
 
 enum netconf_msg_step {
 	NETCONF_MSG_STEP_HELLO,
@@ -272,7 +271,7 @@ static void connection_accept_cb(struct uloop_fd *fd, unsigned int events)
 	c->step = NETCONF_MSG_STEP_HELLO;
 
 	DEBUG("crafting hello message\n");
-    rc = method_create_message_hello(session_id++, &hello_message);
+    rc = method_create_message_hello(&hello_message);
     if (rc) {
 		ERROR("failed to create hello message\n");
 		close(sfd);

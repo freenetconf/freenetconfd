@@ -18,7 +18,7 @@
 #define __METHODS_H__
 
 int method_analyze_message_hello(char *method_in, int *base);
-int method_create_message_hello(uint32_t session_id, char **method_out);
+int method_create_message_hello(char **method_out);
 int method_handle_message_rpc(char *method_in, char **method_out);
 
 #endif /* __METHODS__ */

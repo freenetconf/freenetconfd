@@ -28,6 +28,7 @@
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
 #endif
 
+
 struct rpc_data {
 	char *message_id;
 	node_t *in;
@@ -113,10 +114,15 @@ exit:
 	return rc;
 }
 
-int method_create_message_hello(uint32_t session_id, char **xml_out)
+int method_create_message_hello(char **xml_out)
 {
 	int rc = -1, len;
 	char c_session_id[BUFSIZ];
+	static uint32_t session_id = 0;
+
+	/* prevent variable overflow */
+	if (++session_id == 0)
+		session_id = 1;
 
 	node_t *root = roxml_load_buf(XML_NETCONF_HELLO);
 	if (!root) {
