@@ -35,19 +35,6 @@
 "<rpc-reply>" \
 "</rpc-reply>"
 
-#define XML_NETCONF_RPC_ERROR_TEMPLATE \
-"<rpc-reply xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"\
- "<rpc-error>" \
-  "<error-type>error</error-type>" \
-  "<error-tag>missing-attribute</error-tag>" \
-  "<error-severity>error</error-severity>" \
-  "<error-info>" \
-   "<bad-attribute>message-id</bad-attribute>" \
-   "<bad-element>rpc</bad-element>" \
-  "</error-info>" \
- "</rpc-error>" \
-"</rpc-reply>"
-
 #define YANG_NAMESPACE "urn:ietf:params:xml:ns:yang"
 
 #endif /* _FREENETCONFD_MESSAGES_H__ */
