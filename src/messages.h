@@ -27,7 +27,11 @@
   "<capability>urn:ietf:params:netconf:base:1.0</capability>" \
   "<capability>urn:ietf:params:netconf:base:1.1</capability>" \
   "<capability>urn:ietf:params:netconf:capability:writable-running:1.0</capability>" \
-  "<capability>urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring?module=ietf-netconf-monitoring&amp;revision=2010-10-04</capability>" \
+  "<capability>urn:ietf:params:xml:ns:yang:ietf-yang-types?module=ietf-yang-types&amp;revision=2013-07-15</capability>"\
+  "<capability>urn:ietf:params:xml:ns:yang:ietf-inet-types?module=ietf-inet-types&amp;revision=2013-07-15</capability>"\
+  "<capability>urn:ietf:params:xml:ns:yang:ietf-netconf-acm?module=ietf-netconf-acm&amp;revision=2012-02-22</capability>"\
+  "<capability>urn:ietf:params:xml:ns:yang:iana-timezones?module=iana-timezones&amp;revision=2012-07-09</capability>"\
+  "<capability>urn:ietf:params:xml:ns:yang:ietf-system?revision=2013-11-07&amp;module=ietf-system&amp;features=radius</capability>"\
  "</capabilities>" \
 "</hello>"
 
