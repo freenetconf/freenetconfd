@@ -39,3 +39,7 @@ series
 
 # ctags
 tags
+
+# kdevelop
+.kdev4
+freenetconfd.kdev4
