@@ -23,6 +23,8 @@ SET(SOURCES
 	src/config.h
 	src/netconf.c
 	src/netconf.h
+	src/datastore.c
+	src/datastore.h
 )
 
 ADD_EXECUTABLE(freenetconfd ${SOURCES})
