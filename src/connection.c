@@ -199,16 +199,15 @@ static void notify_read(struct ustream *s, int bytes)
 
 			*buf2 = '\0';
 
-			DEBUG("examining message\n");
+			DEBUG("received rpc\n\n %s\n\n", data);
 			rc = method_handle_message_rpc(data, &buf);
-			DEBUG("buf message %s\n", buf);
 			if (rc == -1) {
 				/* FIXME */
 				connection_close(s);
 				return;
 			}
 
-			DEBUG("sending reply\n");
+			DEBUG("sending rpc-reply\n\n %s\n\n", buf);
 			ustream_printf(s, "\n#%zu\n%s%s", strlen(buf), buf, XML_NETCONF_BASE_1_1_END);
 			free(buf);
 
@@ -219,6 +218,11 @@ static void notify_read(struct ustream *s, int bytes)
 				connection_close(s);
 				return;
 			}
+
+			if (c->base)
+				c->step = NETCONF_MSG_STEP_HEADER_1;
+			else
+				c->step = NETCONF_MSG_STEP_HEADER_0;
 
 			break;
 
