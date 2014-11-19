@@ -54,6 +54,8 @@ void ds_init(datastore_t *datastore, char *name, char *value, char *ns)
 	datastore->value = value;
 	datastore->ns = ns;
 	datastore->parent = datastore->child = datastore->prev = datastore->next = NULL;
+	datastore->get = NULL;
+	datastore->set = datastore->del = datastore->create = NULL;
 	datastore->read_only = datastore->is_list = datastore->is_key = 0;
 }
 
@@ -174,8 +176,18 @@ void ds_get_all(datastore_t *our_root, node_t *out, int check_siblings)
 {
 	if (!our_root) return;
 
-	node_t *nn = roxml_add_node(out, 0, ROXML_ELM_NODE, our_root->name, our_root->value);
+	// use get() if available
+	char *value;
+	if (our_root->get)
+		value = our_root->get(our_root);
+	else
+		value = our_root->value;
+
+	node_t *nn = roxml_add_node(out, 0, ROXML_ELM_NODE, our_root->name, value);
 	if (our_root->ns) roxml_add_node(nn, 0, ROXML_ATTR_NODE, "xmlns", our_root->ns); // add namespace
+
+	// free value if returned with get (get always allocates)
+	if (our_root->get) free(value);
 
 	if (check_siblings) {
 		ds_get_all(our_root->next, out, 1);
@@ -192,7 +204,13 @@ void ds_get_all_keys(datastore_t *our_root, node_t *out)
 		node_t *parent_xml = roxml_add_node(out, 0, ROXML_ELM_NODE, parent_cur->name, NULL);
 		for (datastore_t *cur = parent_cur->child; cur != NULL; cur = cur->next) {
 			if (cur->is_key) {
-				roxml_add_node(parent_xml, 0, ROXML_ELM_NODE, cur->name, cur->value);
+				char *value;
+				if (cur->get)
+					value = cur->get(cur); // use get() if available
+				else
+					value = cur->value;
+				roxml_add_node(parent_xml, 0, ROXML_ELM_NODE, cur->name, value);
+				if (cur->get) free(value); // free value if returned with get (get always allocates)
 			}
 		}
 	}

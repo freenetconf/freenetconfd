@@ -15,10 +15,10 @@ typedef struct datastore {
 	struct datastore *child; // first child
 	struct datastore *prev; // previous in the list
 	struct datastore *next; // next in the list
-	int (*get) (void *data);
-	int (*set) (void *data);
-	int (*del) (void *data);
-	int (*create) (void *data);
+	char *(*get) (struct datastore *self);
+	int (*set) (struct datastore *self, void *data);
+	int (*del) (struct datastore *self, void *data);
+	int (*create) (struct datastore *self, void *data);
 	int read_only;
 	int is_list;
 	int is_key;

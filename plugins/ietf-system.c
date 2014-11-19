@@ -31,12 +31,20 @@ char *ns = "urn:ietf:params:xml:ns:yang:ietf-system";
 
 datastore_t root = {"root",NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,0,0,0};
 
+char *get_hostname(datastore_t *node)
+{
+	char *rc = malloc(9);
+	strncpy(rc, "HOSTNAME", 9);
+	return rc;
+}
+
 int create_store()
 {
 	datastore_t *system = ds_add_child_create(&root, "system", NULL, ns);
 
 	datastore_t *location = ds_add_child_create(system, "location", "Zagreb", NULL); // string
 	datastore_t *hostname = ds_add_child_create(system, "hostname", "localhost", NULL); // string
+	hostname->get = get_hostname;
 	datastore_t *contact = ds_add_child_create(system, "contact", "yes, please", NULL); // string
 	datastore_t *clock = ds_add_child_create(system, "clock", NULL, NULL);
 	datastore_t *ntp = ds_add_child_create(system, "ntp", NULL, NULL);
