@@ -274,6 +274,7 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "rpc_error", data.error);
 
 			free(data.error);
+			data.error = NULL;
 
 			rc = 0;
 		break;

@@ -99,12 +99,10 @@ char* netconf_rpc_error(char *msg, rpc_error_tag_t rpc_error_tag, rpc_error_type
 		type = rpc_error_types[rpc_error_type];
 
 	if (rpc_error_severity > 0 && rpc_error_severity < __RPC_ERROR_SEVERITY_COUNT)
-		tag = rpc_error_severities[rpc_error_severity];
+		severity = rpc_error_severities[rpc_error_severity];
 
-	asprintf(&rpc_error, "<error_type>%s</error_type>", type);
-	asprintf(&rpc_error, "%s<error_tag>%s</error_tag>", rpc_error, tag);
-	asprintf(&rpc_error, "%s<error_severity>%s</error_severity>", rpc_error, severity);
-	asprintf(&rpc_error, "%s<error_message xml:lang=\"en\">%s</error_message>" ,rpc_error, msg);
+	asprintf(&rpc_error, "<error_type>%s</error_type><error_tag>%s</error_tag>"
+			 "<error_severity>%s</error_severity><error_message xml:lang=\"en\">%s</error_message>", type, tag, severity, msg);
 
 	return rpc_error;
 }
