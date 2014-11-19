@@ -163,7 +163,7 @@ int rpc_system_restart(struct rpc_data *data)
 	int reboot_status;
 	waitpid(reboot_pid, &reboot_status, 0);
 
-	if( !WIFEXITED(reboot_status) || WIFEXITSTATUS(reboot_status) != 0)
+	if( !WIFEXITED(reboot_status) || WEXITSTATUS(reboot_status) != 0)
 		return RPC_ERROR;
 
 	return RPC_DATA;
@@ -184,7 +184,7 @@ int rpc_system_shutdown(struct rpc_data *data)
 	int shutdown_status;
 	waitpid(shutdown_pid, &shutdown_status, 0);
 
-	if( !WIFEXITED(shutdown_status) || WIFEXITSTATUS(shutdown_status) != 0)
+	if( !WIFEXITED(shutdown_status) || WEXITSTATUS(shutdown_status) != 0)
 		return RPC_ERROR;
 
 	return RPC_DATA;
@@ -203,7 +203,7 @@ struct module *init()
 	m.edit_config = edit_config;
 	m.rpcs = rpc;
 	m.rpc_count = (sizeof(rpc) / sizeof(*(rpc))); // to be filled directly by code generator
-	m.namespace = ns;
+	m.ns = ns;
 
 	return &m;
 }

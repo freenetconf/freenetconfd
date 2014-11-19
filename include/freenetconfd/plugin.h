@@ -41,7 +41,7 @@ struct module {
 	int (*edit_config) (struct rpc_data *data);
 	const struct rpc_method *rpcs;
 	int rpc_count;
-	const char *namespace;
+	char* ns;
 };
 
 struct module_list {

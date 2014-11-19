@@ -167,7 +167,7 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 {
 	int rc = -1;
 	char *operation_name = NULL;
-	char *namespace = NULL;
+	char *ns = NULL;
 	struct rpc_data data = { NULL, NULL, NULL, 0};
 
 	node_t *root_in = roxml_load_buf(xml_in);
@@ -179,18 +179,18 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 	node_t *operation = roxml_get_chld(rpc_in, NULL, 0);
 	if (!operation) goto exit;
 
-	node_t *n_namespace = roxml_get_ns(operation);
-	if (!n_namespace) goto exit;
+	node_t *n_ns = roxml_get_ns(operation);
+	if (!n_ns) goto exit;
 
 	operation_name = roxml_get_name(operation, NULL, 0);
-	namespace = roxml_get_content(n_namespace, NULL, 0, NULL);
+	ns = roxml_get_content(n_ns, NULL, 0, NULL);
 
-	if (!operation_name || !namespace) {
+	if (!operation_name || !ns) {
 		ERROR("unable to extract rpc and namespace\n");
 		goto exit;
 	}
 
-	DEBUG("received rpc '%s' (%s)\n", operation_name, namespace);
+	DEBUG("received rpc '%s' (%s)\n", operation_name, ns);
 
 	data.out = roxml_load_buf(XML_NETCONF_REPLY_TEMPLATE);
 	node_t *rpc_out = roxml_get_chld(data.out, NULL, 0);
@@ -234,8 +234,8 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 			DEBUG("module: %s\n", elem->name);
 			for (int i = 0; i < elem->m->rpc_count; i++) {
 				if (!strcmp(elem->m->rpcs[i].query, operation_name) &&
-					!strcmp(elem->m->namespace, namespace)) {
-					DEBUG("method found in module: %s (%s)\n", elem->m->rpcs[i].query, elem->m->namespace);
+					!strcmp(elem->m->ns, ns)) {
+					DEBUG("method found in module: %s (%s)\n", elem->m->rpcs[i].query, elem->m->ns);
 					method = &elem->m->rpcs[i];
 					found = 1;
 					break;
@@ -314,13 +314,13 @@ method_handle_get(struct rpc_data *data)
 		while(--nb >= 0) {
 			n = roxml_get_chld(n_filter[0], NULL, nb);
 			char *module = roxml_get_name(n, NULL, 0);
-			char *namespace = roxml_get_content(roxml_get_ns(n), NULL, 0, NULL);
-			DEBUG("filter for module: %s (%s)\n", module, namespace);
+			char *ns = roxml_get_content(roxml_get_ns(n), NULL, 0, NULL);
+			DEBUG("filter for module: %s (%s)\n", module, ns);
 
 			list_for_each_entry(elem, modules, list) {
 				DEBUG("module: %s\n", elem->name);
-				if (!strcmp(namespace, elem->m->namespace)) {
-					DEBUG("calling module: %s (%s) \n", module, namespace);
+				if (!strcmp(ns, elem->m->ns)) {
+					DEBUG("calling module: %s (%s) \n", module, ns);
 					struct rpc_data d = {n, n_data, NULL, 1};
 					elem->m->get(&d);
 					break;
@@ -361,13 +361,13 @@ method_handle_get_config(struct rpc_data *data)
 		while(--nb >= 0) {
 			n = roxml_get_chld(n_filter[0], NULL, nb);
 			char *module = roxml_get_name(n, NULL, 0);
-			char *namespace = roxml_get_content(roxml_get_ns(n), NULL, 0, NULL);
-			DEBUG("filter for module: %s (%s)\n", module, namespace);
+			char *ns = roxml_get_content(roxml_get_ns(n), NULL, 0, NULL);
+			DEBUG("filter for module: %s (%s)\n", module, ns);
 
 			list_for_each_entry(elem, modules, list) {
 				DEBUG("module: %s\n", elem->name);
-				if (!strcmp(namespace, elem->m->namespace)) {
-					DEBUG("calling module: %s (%s) \n", module, namespace);
+				if (!strcmp(ns, elem->m->ns)) {
+					DEBUG("calling module: %s (%s) \n", module, ns);
 					struct rpc_data d = {n, n_data, NULL, 1};
 					elem->m->get_config(&d);
 					break;
