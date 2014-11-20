@@ -271,7 +271,13 @@ void ds_get_filtered(node_t *filter_root, datastore_t *our_root, node_t *out)
 		// leaf list
 		for (datastore_t *cur = our_root; cur != NULL; cur = cur->next) {
 			if (!strcmp(cur->name, our_root->name)) {
-				roxml_add_node(out, 0, ROXML_ELM_NODE, our_root->name, cur->value);
+				char *value;
+				if (cur->get)
+					value = cur->get(cur); // use get() if available
+				else
+					value = cur->value;
+				roxml_add_node(out, 0, ROXML_ELM_NODE, our_root->name, value);
+				if (cur->get) free(value); // free value if returned with get (get always allocates)
 			}
 		}
 	} else {
