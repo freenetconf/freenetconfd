@@ -56,6 +56,7 @@ void ds_init(datastore_t *datastore, char *name, char *value, char *ns)
 	datastore->parent = datastore->child = datastore->prev = datastore->next = NULL;
 	datastore->get = NULL;
 	datastore->set = datastore->del = datastore->create = NULL;
+	datastore->update = NULL;
 	datastore->read_only = datastore->is_list = datastore->is_key = 0;
 }
 
@@ -176,6 +177,8 @@ void ds_get_all(datastore_t *our_root, node_t *out, int check_siblings)
 {
 	if (!our_root) return;
 
+	if (our_root->update) our_root->update(our_root);
+
 	// use get() if available
 	char *value;
 	if (our_root->get)
@@ -199,6 +202,8 @@ void ds_get_all(datastore_t *our_root, node_t *out, int check_siblings)
 void ds_get_all_keys(datastore_t *our_root, node_t *out)
 {
 	if (!our_root || !out) return;
+
+	if (our_root->update) our_root->update(our_root);
 
 	for (datastore_t *parent_cur = our_root; parent_cur != NULL; parent_cur = parent_cur->next) {
 		node_t *parent_xml = roxml_add_node(out, 0, ROXML_ELM_NODE, parent_cur->name, NULL);
@@ -262,6 +267,10 @@ void ds_get_filtered(node_t *filter_root, datastore_t *our_root, node_t *out)
 
 		ds_get_list_data(filter_root, node, out);
 	} else if (filter_root_child) {
+		// we're not calling update() sooner because ds_get_all and ds_get_all_keys
+		// will call it too and we don't want to call it twice in the same get
+		if (our_root->update) our_root->update(our_root);
+
 		out = roxml_add_node(out, 0, ROXML_ELM_NODE, our_root->name, NULL);
 		if (our_root->ns) roxml_add_node(out, 0, ROXML_ATTR_NODE, "xmlns", our_root->ns); // add namespace
 
@@ -269,6 +278,11 @@ void ds_get_filtered(node_t *filter_root, datastore_t *our_root, node_t *out)
 		ds_get_filtered(filter_root_child, our_child, out);
 	} else if (our_root->is_list) {
 		// leaf list
+
+		// we're not calling update() sooner because ds_get_all and ds_get_all_keys
+		// will call it too and we don't want to call it twice in the same get
+		if (our_root->update) our_root->update(our_root);
+
 		for (datastore_t *cur = our_root; cur != NULL; cur = cur->next) {
 			if (!strcmp(cur->name, our_root->name)) {
 				char *value;

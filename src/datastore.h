@@ -19,6 +19,7 @@ typedef struct datastore {
 	int (*set) (struct datastore *self, void *data);
 	int (*del) (struct datastore *self, void *data);
 	int (*create) (struct datastore *self, void *data);
+	void (*update) (struct datastore *self);
 	int read_only;
 	int is_list;
 	int is_key;
