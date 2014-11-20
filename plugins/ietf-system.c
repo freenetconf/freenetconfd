@@ -77,9 +77,8 @@ int create_store()
 	}
 
 	datastore_t *dns_resolver = ds_add_child_create(system, "dns-resolver", NULL, NULL);
-	for (int i = 1; i < 2; i++) {
-		ds_add_child_create(dns_resolver, "search", "localhost", NULL);
-	}
+	ds_add_child_create(dns_resolver, "search", "localhost1", NULL)->is_list = 1;
+	ds_add_child_create(dns_resolver, "search", "localhost2", NULL)->is_list = 1;
 
 	for (int i = 1; i < 3; i++) {
 		datastore_t *server = ds_add_child_create(dns_resolver, "server", NULL, NULL);

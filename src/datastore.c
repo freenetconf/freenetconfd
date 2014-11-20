@@ -12,7 +12,7 @@ void ds_print_key(datastore_key_t* key)
 
 void ds_free_key(datastore_key_t* key)
 {
-	ds_free_key(key->next);
+	if (key && key->next) ds_free_key(key->next);
 	free(key);
 }
 
@@ -267,8 +267,15 @@ void ds_get_filtered(node_t *filter_root, datastore_t *our_root, node_t *out)
 
 		datastore_t *our_child = ds_find_child(our_root, roxml_get_name(filter_root_child, NULL, 0));
 		ds_get_filtered(filter_root_child, our_child, out);
+	} else if (our_root->is_list) {
+		// leaf list
+		for (datastore_t *cur = our_root; cur != NULL; cur = cur->next) {
+			if (!strcmp(cur->name, our_root->name)) {
+				roxml_add_node(out, 0, ROXML_ELM_NODE, our_root->name, cur->value);
+			}
+		}
 	} else {
-		 ds_get_all(our_root, out, 0);
+		ds_get_all(our_root, out, 0);
 	}
 }
 
