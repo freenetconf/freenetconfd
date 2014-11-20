@@ -38,19 +38,29 @@ char *get_hostname(datastore_t *node)
 	return rc;
 }
 
+// FIXME: this is only a prototype
+void generic_update(datastore_t *node)
+{
+	if (node) printf("Datastore node UPDATE\t%s: %s\n", node->name, node->value);
+}
+
 int create_store()
 {
 	datastore_t *system = ds_add_child_create(&root, "system", NULL, ns);
+	system->update = generic_update;
 
 	datastore_t *location = ds_add_child_create(system, "location", "Zagreb", NULL); // string
+	location->update = generic_update;
 	datastore_t *hostname = ds_add_child_create(system, "hostname", "localhost", NULL); // string
 	hostname->get = get_hostname;
+	hostname->update = generic_update;
 	datastore_t *contact = ds_add_child_create(system, "contact", "yes, please", NULL); // string
 	datastore_t *clock = ds_add_child_create(system, "clock", NULL, NULL);
 	datastore_t *ntp = ds_add_child_create(system, "ntp", NULL, NULL);
 
 	// clock
 	datastore_t *timezone_location = ds_add_child_create(clock, "timezone-location", "Europe/Zagreb", NULL); // string
+	timezone_location->update = generic_update;
 	datastore_t *timezone_utc_offset = ds_add_child_create(clock, "timezone-utc-offset", "60", NULL); // int16
 
 	// ntp
