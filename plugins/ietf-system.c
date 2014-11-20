@@ -29,7 +29,7 @@
 struct module m;
 char *ns = "urn:ietf:params:xml:ns:yang:ietf-system";
 
-datastore_t root = {"root",NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,0,0,0};
+datastore_t root = {"root",NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,0,0};
 
 char *get_hostname(datastore_t *node)
 {
@@ -120,7 +120,7 @@ int get(struct rpc_data *data)
 
 	// client requested get all
 	if (ro_root_name && !strcmp("get", ro_root_name)) {
-		ds_get_all(root.child, data->out, 1);
+		ds_get_all(root.child, data->out, data->get_config, 1);
 
 		ds_free(root.child);
 		root.child = NULL;
@@ -130,17 +130,11 @@ int get(struct rpc_data *data)
 
 	// client requested filtered get
 	datastore_t *our_root = ds_find_child(&root, ro_root_name);
-	ds_get_filtered(ro_root, our_root, data->out);
+	ds_get_filtered(ro_root, our_root, data->out, data->get_config);
 
 	ds_free(root.child);
 	root.child = NULL;
 
-	return RPC_DATA;
-}
-
-// get-config
-int get_config(struct rpc_data *data)
-{
 	return RPC_DATA;
 }
 
@@ -216,7 +210,6 @@ struct rpc_method rpc[] = {
 struct module *init()
 {
 	m.get = get;
-	m.get_config = get_config;
 	m.edit_config = edit_config;
 	m.rpcs = rpc;
 	m.rpc_count = (sizeof(rpc) / sizeof(*(rpc))); // to be filled directly by code generator

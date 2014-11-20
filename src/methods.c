@@ -321,7 +321,7 @@ method_handle_get(struct rpc_data *data)
 				DEBUG("module: %s\n", elem->name);
 				if (!strcmp(ns, elem->m->ns)) {
 					DEBUG("calling module: %s (%s) \n", module, ns);
-					struct rpc_data d = {n, n_data, NULL, 1};
+					struct rpc_data d = {n, n_data, NULL, 0};
 					elem->m->get(&d);
 					break;
 				}
@@ -369,7 +369,7 @@ method_handle_get_config(struct rpc_data *data)
 				if (!strcmp(ns, elem->m->ns)) {
 					DEBUG("calling module: %s (%s) \n", module, ns);
 					struct rpc_data d = {n, n_data, NULL, 1};
-					elem->m->get_config(&d);
+					elem->m->get(&d);
 					break;
 				}
 			}
@@ -379,8 +379,8 @@ method_handle_get_config(struct rpc_data *data)
 		list_for_each_entry(elem, modules, list) {
 			DEBUG("calling module: %s\n", elem->name);
 			n=data->in;
-			struct rpc_data d = {n, n_data, NULL, 0};
-			elem->m->get_config(&d);
+			struct rpc_data d = {n, n_data, NULL, 1};
+			elem->m->get(&d);
 		}
 	}
 

@@ -20,7 +20,7 @@ typedef struct datastore {
 	int (*del) (struct datastore *self, void *data);
 	int (*create) (struct datastore *self, void *data);
 	void (*update) (struct datastore *self);
-	int read_only;
+	int is_config;
 	int is_list;
 	int is_key;
 } datastore_t;
@@ -101,6 +101,18 @@ void ds_free(datastore_t *datastore);
 datastore_t *ds_create(char *name, char *value, char *ns);
 
 /**
+ * ds_set_is_config() - sets datastore is_donfig property
+ * @datastore datastore node you're setting is_config on
+ * @is_config 1 for true, 0 for false
+ * @set_siblings set it to 0 when calling manually
+ *
+ * You should use this to set is_config instead of setting it
+ * manually. It takes care of setting is_config to false on
+ * children.
+ */
+void ds_set_is_config(datastore_t* datastore, int is_config, int set_siblings);
+
+/**
  * datastore_add_child() - adds a child to datastore node
  *
  * @self datastore to add to
@@ -147,12 +159,12 @@ int ds_list_has_key(datastore_t *list);
 
 datastore_t *ds_find_node_by_key(datastore_t *our_root, datastore_key_t *key);
 
-void ds_get_all(datastore_t *our_root, node_t *out, int check_siblings);
+void ds_get_all(datastore_t *our_root, node_t *out, int get_config, int check_siblings);
 
-void ds_get_all_keys(datastore_t *our_root, node_t *out);
+void ds_get_all_keys(datastore_t *our_root, node_t *out, int get_config);
 
-void ds_get_list_data(node_t *filter_root, datastore_t *node, node_t *out);
+void ds_get_list_data(node_t* filter_root, datastore_t* node, node_t* out, int get_config);
 
-void ds_get_filtered(node_t *filter_root, datastore_t *our_root, node_t *out);
+void ds_get_filtered(node_t *filter_root, datastore_t *our_root, node_t *out, int get_config);
 
 #endif /* __DATASTORE_H_ */

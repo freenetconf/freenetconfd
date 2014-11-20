@@ -57,7 +57,8 @@ void ds_init(datastore_t *datastore, char *name, char *value, char *ns)
 	datastore->get = NULL;
 	datastore->set = datastore->del = datastore->create = NULL;
 	datastore->update = NULL;
-	datastore->read_only = datastore->is_list = datastore->is_key = 0;
+	datastore->is_config = 1;
+	datastore->is_list = datastore->is_key = 0;
 }
 
 void ds_free(datastore_t *datastore)
@@ -66,7 +67,8 @@ void ds_free(datastore_t *datastore)
 	free(datastore->name); datastore->name = NULL;
 	free(datastore->value); datastore->value = NULL;
 	free(datastore->ns); datastore->ns = NULL;
-	datastore->read_only = datastore->is_list = datastore->is_key = 0;
+	datastore->is_config = 1;
+	datastore->is_list = datastore->is_key = 0;
 	ds_free(datastore->next); datastore->next = NULL;
 	ds_free(datastore->child); datastore->child = NULL;
 	free(datastore);
@@ -85,6 +87,20 @@ datastore_t *ds_create(char *name, char *value, char *ns)
 	return datastore;
 }
 
+void ds_set_is_config(datastore_t* datastore, int is_config, int set_siblings)
+{
+	if (!datastore) return;
+
+	datastore->is_config = is_config;
+	if (is_config) return; // is_config is only recursively set if it's false
+
+	if (set_siblings)
+		ds_set_is_config(datastore->next, is_config, 1);
+
+	ds_set_is_config(datastore->child, is_config, 1);
+}
+
+
 void ds_add_child(datastore_t *self, datastore_t *child)
 {
 	if (self->child) {
@@ -96,6 +112,7 @@ void ds_add_child(datastore_t *self, datastore_t *child)
 		self->child = child;
 	}
 	child->parent = self;
+	ds_set_is_config(child, self->is_config, 0);
 }
 
 datastore_t *ds_add_child_create(datastore_t *datastore, char *name, char *value, char *ns)
@@ -173,9 +190,12 @@ datastore_t *ds_find_node_by_key(datastore_t *our_root, datastore_key_t *key)
 	return NULL;
 }
 
-void ds_get_all(datastore_t *our_root, node_t *out, int check_siblings)
+void ds_get_all(datastore_t *our_root, node_t *out, int get_config, int check_siblings)
 {
 	if (!our_root) return;
+
+	// skip non-configurable nodes if only configurable are requested
+	if (get_config && !our_root->is_config) return;
 
 	if (our_root->update) our_root->update(our_root);
 
@@ -193,15 +213,18 @@ void ds_get_all(datastore_t *our_root, node_t *out, int check_siblings)
 	if (our_root->get) free(value);
 
 	if (check_siblings) {
-		ds_get_all(our_root->next, out, 1);
+		ds_get_all(our_root->next, out, get_config, 1);
 	}
 
-	ds_get_all(our_root->child, nn, 1);
+	ds_get_all(our_root->child, nn, get_config, 1);
 }
 
-void ds_get_all_keys(datastore_t *our_root, node_t *out)
+void ds_get_all_keys(datastore_t *our_root, node_t *out, int get_config)
 {
 	if (!our_root || !out) return;
+
+	// skip non-configurable nodes if only configurable are requested
+	if (get_config && !our_root->is_config) return;
 
 	if (our_root->update) our_root->update(our_root);
 
@@ -221,8 +244,11 @@ void ds_get_all_keys(datastore_t *our_root, node_t *out)
 	}
 }
 
-void ds_get_list_data(node_t *filter_root, datastore_t *node, node_t *out)
+void ds_get_list_data(node_t *filter_root, datastore_t *node, node_t *out, int get_config)
 {
+	// skip non-configurable nodes if only configurable are requested
+	if (get_config && !node->is_config) return;
+
 	int child_count = roxml_get_chld_nb(filter_root);
 
 	for (int i = 0; i < child_count; i++) {
@@ -232,18 +258,21 @@ void ds_get_list_data(node_t *filter_root, datastore_t *node, node_t *out)
 		char *value = roxml_get_content(cur, NULL, 0, NULL);
 		if (value && strlen(value)) continue; // skip if key has value
 		datastore_t *our_cur = ds_find_child(node, name);
-		ds_get_all(our_cur, out, 0);
+		ds_get_all(our_cur, out, get_config, 0);
 	}
 }
 
-void ds_get_filtered(node_t *filter_root, datastore_t *our_root, node_t *out)
+void ds_get_filtered(node_t *filter_root, datastore_t *our_root, node_t *out, int get_config)
 {
 	if (!our_root) return;
+
+	// skip non-configurable nodes if only configurable are requested
+	if (get_config && !our_root->is_config) return;
 
 	// recursively check siblings
 	node_t *filter_root_sibling = roxml_get_next_sibling(filter_root);
 	if (filter_root_sibling && our_root->next) {
-		ds_get_filtered(filter_root_sibling, our_root->next, out);
+		ds_get_filtered(filter_root_sibling, our_root->next, out, get_config);
 	}
 
 	node_t *filter_root_child = roxml_get_chld(filter_root, NULL, 0);
@@ -255,7 +284,7 @@ void ds_get_filtered(node_t *filter_root, datastore_t *our_root, node_t *out)
 		datastore_key_t *key = ds_get_key_from_xml(filter_root);
 		ds_print_key(key);
 		if (!key) {
-			ds_get_all_keys(our_root, out);
+			ds_get_all_keys(our_root, out, get_config);
 			return;
 		}
 
@@ -265,7 +294,7 @@ void ds_get_filtered(node_t *filter_root, datastore_t *our_root, node_t *out)
 		if (!node) DEBUG("node IS NULL\n");
 		else DEBUG("node name: %s\nfilter_root name: %s\n", node->name, roxml_get_name(filter_root, NULL, 0));
 
-		ds_get_list_data(filter_root, node, out);
+		ds_get_list_data(filter_root, node, out, get_config);
 	} else if (filter_root_child) {
 		// we're not calling update() sooner because ds_get_all and ds_get_all_keys
 		// will call it too and we don't want to call it twice in the same get
@@ -275,7 +304,7 @@ void ds_get_filtered(node_t *filter_root, datastore_t *our_root, node_t *out)
 		if (our_root->ns) roxml_add_node(out, 0, ROXML_ATTR_NODE, "xmlns", our_root->ns); // add namespace
 
 		datastore_t *our_child = ds_find_child(our_root, roxml_get_name(filter_root_child, NULL, 0));
-		ds_get_filtered(filter_root_child, our_child, out);
+		ds_get_filtered(filter_root_child, our_child, out, get_config);
 	} else if (our_root->is_list) {
 		// leaf list
 
@@ -295,7 +324,7 @@ void ds_get_filtered(node_t *filter_root, datastore_t *our_root, node_t *out)
 			}
 		}
 	} else {
-		ds_get_all(our_root, out, 0);
+		ds_get_all(our_root, out, get_config, 0);
 	}
 }
 

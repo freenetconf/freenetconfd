@@ -26,7 +26,7 @@ struct rpc_data {
 	node_t *in;
 	node_t *out;
 	char *error;
-	int filter;
+	int get_config;
 };
 
 struct rpc_method {
@@ -37,7 +37,6 @@ struct rpc_method {
 
 struct module {
 	int (*get) (struct rpc_data *data);
-	int (*get_config) (struct rpc_data *data);
 	int (*edit_config) (struct rpc_data *data);
 	const struct rpc_method *rpcs;
 	int rpc_count;
