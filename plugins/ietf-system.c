@@ -46,6 +46,7 @@ void generic_update(datastore_t *node)
 
 int create_store()
 {
+	// ietf-system
 	datastore_t *system = ds_add_child_create(&root, "system", NULL, ns);
 	system->update = generic_update;
 
@@ -107,6 +108,22 @@ int create_store()
 	ds_add_child_create(options, "timeout", "5", NULL);
 	ds_add_child_create(options, "attempts", "2", NULL);
 
+
+	// ietf-system-state
+	datastore_t *system_state = ds_add_child_create(&root, "system-state", NULL, ns);
+	ds_set_is_config(system_state, 0, 0);
+
+	datastore_t *platform  = ds_add_child_create(system_state, "platform", NULL, ns);
+
+	datastore_t *os_name = ds_add_child_create(platform, "os-name", "The awesome Linux", ns);
+	datastore_t *os_release = ds_add_child_create(platform, "os-release", "Top noch", ns);
+	datastore_t *os_version = ds_add_child_create(platform, "os-version", "latest", ns);
+	datastore_t *machine = ds_add_child_create(platform, "machine", "x86_64", ns);
+
+	datastore_t *clock_state = ds_add_child_create(system_state, "clock", NULL, ns);
+
+	datastore_t *current_datetime = ds_add_child_create(clock_state, "current_datetime", "now", ns);
+	datastore_t *boot_datetime = ds_add_child_create(clock_state, "boot-datetime", "before", ns);
 	return 0;
 }
 
