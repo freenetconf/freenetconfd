@@ -81,6 +81,10 @@ static int module_load(char *modules_path, char *name, struct module_list **e)
 
 static void module_unload(struct module_list **elem)
 {
+	void (*destroy)();
+	destroy = dlsym((*elem)->lib,"destroy");
+	if (destroy) destroy();
+
 	free((*elem)->name);
 	dlclose((*elem)->lib);
 	list_del(&(*elem)->list);

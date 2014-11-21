@@ -130,8 +130,6 @@ int create_store()
 // get
 int get(struct rpc_data *data)
 {
-	create_store();
-
 	node_t *ro_root = data->in;
 	char *ro_root_name = roxml_get_name(ro_root, NULL, 0);
 
@@ -139,18 +137,12 @@ int get(struct rpc_data *data)
 	if (ro_root_name && !strcmp("get", ro_root_name)) {
 		ds_get_all(root.child, data->out, data->get_config, 1);
 
-		ds_free(root.child);
-		root.child = NULL;
-
 		return RPC_DATA;
 	}
 
 	// client requested filtered get
 	datastore_t *our_root = ds_find_child(&root, ro_root_name);
 	ds_get_filtered(ro_root, our_root, data->out, data->get_config);
-
-	ds_free(root.child);
-	root.child = NULL;
 
 	return RPC_DATA;
 }
@@ -226,6 +218,8 @@ struct rpc_method rpc[] = {
 
 struct module *init()
 {
+	create_store();
+
 	m.get = get;
 	m.edit_config = edit_config;
 	m.rpcs = rpc;
@@ -233,4 +227,10 @@ struct module *init()
 	m.ns = ns;
 
 	return &m;
+}
+
+void destroy()
+{
+	ds_free(root.child);
+	root.child = NULL;
 }

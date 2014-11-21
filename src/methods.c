@@ -390,6 +390,32 @@ method_handle_get_config(struct rpc_data *data)
 static int
 method_handle_edit_config(struct rpc_data *data)
 {
+	node_t *config = roxml_get_chld(data->in, "config", 0);
+	if (!config) return RPC_ERROR;
+
+	struct list_head *modules = get_modules();
+	struct module_list *elem;
+
+	int child_count = roxml_get_chld_nb(config);
+	for (int i = 0; i < child_count; i++) {
+		node_t *cur = roxml_get_chld(config, NULL, i);
+
+		char *module = roxml_get_name(cur, NULL, 0);
+		char *ns = roxml_get_content(roxml_get_ns(cur), NULL, 0, NULL);
+
+		DEBUG("edit_config for module: %s (%s)\n", module, ns);
+
+		list_for_each_entry(elem, modules, list) {
+			DEBUG("module: %s\n", elem->name);
+
+			if (!strcmp(ns, elem->m->ns)) {
+				DEBUG("calling module: %s (%s) \n", module, ns);
+				struct rpc_data d = {config, data->out, NULL, -1};
+				elem->m->edit_config(&d);
+				break;
+			}
+		}
+	}
 	return RPC_OK;
 }
 
