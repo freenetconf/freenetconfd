@@ -410,7 +410,7 @@ method_handle_edit_config(struct rpc_data *data)
 
 			if (!strcmp(ns, elem->m->ns)) {
 				DEBUG("calling module: %s (%s) \n", module, ns);
-				struct rpc_data d = {config, data->out, NULL, -1};
+				struct rpc_data d = {cur, data->out, NULL, -1};
 				elem->m->edit_config(&d);
 				break;
 			}

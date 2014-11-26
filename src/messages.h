@@ -30,8 +30,8 @@
   "<capability>urn:ietf:params:xml:ns:yang:ietf-yang-types?module=ietf-yang-types&amp;revision=2013-07-15</capability>"\
   "<capability>urn:ietf:params:xml:ns:yang:ietf-inet-types?module=ietf-inet-types&amp;revision=2013-07-15</capability>"\
   "<capability>urn:ietf:params:xml:ns:yang:ietf-netconf-acm?module=ietf-netconf-acm&amp;revision=2012-02-22</capability>"\
-  "<capability>urn:ietf:params:xml:ns:yang:iana-timezones?module=iana-timezones&amp;revision=2012-07-09</capability>"\
-  "<capability>urn:ietf:params:xml:ns:yang:ietf-system?revision=2013-11-07&amp;module=ietf-system&amp;features=radius</capability>"\
+  "<capability>urn:ietf:params:xml:ns:yang:iana-crypt-hash?module=iana-crypt-hash&amp;revision=2014-04-04</capability>"\
+  "<capability>urn:ietf:params:xml:ns:yang:ietf-system?module=ietf-system&amp;revision=2014-08-06</capability>"\
  "</capabilities>" \
 "</hello>"
 

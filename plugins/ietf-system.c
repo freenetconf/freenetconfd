@@ -29,7 +29,7 @@
 struct module m;
 char *ns = "urn:ietf:params:xml:ns:yang:ietf-system";
 
-datastore_t root = {"root",NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,0,0};
+datastore_t root = {"root",NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,0,0};
 
 char *get_hostname(datastore_t *node)
 {
@@ -47,83 +47,86 @@ void generic_update(datastore_t *node)
 int create_store()
 {
 	// ietf-system
-	datastore_t *system = ds_add_child_create(&root, "system", NULL, ns);
+	datastore_t *system = ds_add_child_create(&root, "system", NULL, ns, NULL, 0);
 	system->update = generic_update;
 
-	datastore_t *location = ds_add_child_create(system, "location", "Zagreb", NULL); // string
+	datastore_t *location = ds_add_child_create(system, "location", "Zagreb", NULL, NULL, 0); // string
 	location->update = generic_update;
-	datastore_t *hostname = ds_add_child_create(system, "hostname", "localhost", NULL); // string
-	hostname->get = get_hostname;
+	datastore_t *hostname = ds_add_child_create(system, "hostname", "localhost", NULL, NULL, 0); // string
+// 	hostname->get = get_hostname;
 	hostname->update = generic_update;
-	datastore_t *contact = ds_add_child_create(system, "contact", "yes, please", NULL); // string
-	datastore_t *clock = ds_add_child_create(system, "clock", NULL, NULL);
-	datastore_t *ntp = ds_add_child_create(system, "ntp", NULL, NULL);
+	datastore_t *contact = ds_add_child_create(system, "contact", "yes, please", NULL, NULL, 0); // string
+	datastore_t *clock = ds_add_child_create(system, "clock", NULL, NULL, NULL, 0);
+	datastore_t *ntp = ds_add_child_create(system, "ntp", NULL, NULL, NULL, 0);
 
 	// clock
-	datastore_t *timezone_location = ds_add_child_create(clock, "timezone-location", "Europe/Zagreb", NULL); // string
+	datastore_t *timezone_location = ds_add_child_create(clock, "timezone-location", "Europe/Zagreb", NULL, NULL, 0); // string
 	timezone_location->update = generic_update;
-	datastore_t *timezone_utc_offset = ds_add_child_create(clock, "timezone-utc-offset", "60", NULL); // int16
+	datastore_t *timezone_utc_offset = ds_add_child_create(clock, "timezone-utc-offset", "60", NULL, NULL, 0); // int16
 
 	// ntp
-	datastore_t *enabled = ds_add_child_create(ntp, "enabled", "true", NULL); // bool
+	datastore_t *enabled = ds_add_child_create(ntp, "enabled", "false", NULL, NULL, 0); // bool
 
 	// server list
 	for (int i = 1; i < 3; i++) {
 		//server
-		datastore_t *server = ds_add_child_create(ntp, "server", NULL, NULL);
+		datastore_t *server = ds_add_child_create(ntp, "server", NULL, NULL, NULL, 0);
 		server->is_list = 1;
 		char server_name[BUFSIZ];
 		snprintf(server_name, BUFSIZ, "server%d", i);
-		datastore_t *name = ds_add_child_create(server, "name", server_name, NULL); // string
+		datastore_t *name = ds_add_child_create(server, "name", server_name, NULL, NULL, 0); // string
 		name->is_key = 1;
 
-		ds_add_child_create(server, "association-type", NULL, NULL);
-		ds_add_child_create(server, "iburst", "false", NULL);
-		ds_add_child_create(server, "prefer", "false", NULL);
+		datastore_t *association_type = ds_add_child_create(server, "association-type", NULL, NULL, NULL, 0);
+		ds_set_is_config(association_type, 0, 0);
+		datastore_t *iburst = ds_add_child_create(server, "iburst", "false", NULL, NULL, 0);
+		ds_set_is_config(iburst, 0, 0);
+		datastore_t *prefer = ds_add_child_create(server, "prefer", "false", NULL, NULL, 0);
+		ds_set_is_config(prefer, 0, 0);
 
 		// udp
-		datastore_t *udp = ds_add_child_create(server, "udp", NULL, NULL);
-		ds_add_child_create(udp, "address", "127.0.0.1", NULL); // inet-addr
-		ds_add_child_create(udp, "port", "8088", NULL); // int16
+		datastore_t *udp = ds_add_child_create(server, "udp", NULL, NULL, NULL, 0);
+		ds_add_child_create(udp, "address", "127.0.0.1", NULL, NULL, 0); // inet-addr
+		ds_add_child_create(udp, "port", "8088", NULL, NULL, 0); // int16
 	}
 
-	datastore_t *dns_resolver = ds_add_child_create(system, "dns-resolver", NULL, NULL);
-	ds_add_child_create(dns_resolver, "search", "localhost1", NULL)->is_list = 1;
-	ds_add_child_create(dns_resolver, "search", "localhost2", NULL)->is_list = 1;
+	datastore_t *dns_resolver = ds_add_child_create(system, "dns-resolver", NULL, NULL, NULL, 0);
+	ds_add_child_create(dns_resolver, "search", "localhost1", NULL, NULL, 0)->is_list = 1;
+	ds_add_child_create(dns_resolver, "search", "localhost2", NULL, NULL, 0)->is_list = 1;
 
 	for (int i = 1; i < 3; i++) {
-		datastore_t *server = ds_add_child_create(dns_resolver, "server", NULL, NULL);
+		datastore_t *server = ds_add_child_create(dns_resolver, "server", NULL, NULL, NULL, 0);
 		char server_name[BUFSIZ];
 		snprintf(server_name, BUFSIZ, "server%d", i);
-		datastore_t *name = ds_add_child_create(server, "name", server_name, NULL); // string
+		datastore_t *name = ds_add_child_create(server, "name", server_name, NULL, NULL, 0); // string
 		name->is_key = 1;
 
 		// udp
-		datastore_t *udp_and_tcp = ds_add_child_create(server, "udp-and-tcp", NULL, NULL);
-		ds_add_child_create(udp_and_tcp, "address", "127.0.0.1", NULL); // inet-addr
-		ds_add_child_create(udp_and_tcp, "port", "8088", NULL); // int16
+		datastore_t *udp_and_tcp = ds_add_child_create(server, "udp-and-tcp", NULL, NULL, NULL, 0);
+		ds_add_child_create(udp_and_tcp, "address", "127.0.0.1", NULL, NULL, 0); // inet-addr
+		ds_add_child_create(udp_and_tcp, "port", "8088", NULL, NULL, 0); // int16
 	}
 
-	datastore_t *options = ds_add_child_create(dns_resolver, "options", NULL, NULL);
-	ds_add_child_create(options, "timeout", "5", NULL);
-	ds_add_child_create(options, "attempts", "2", NULL);
+	datastore_t *options = ds_add_child_create(dns_resolver, "options", NULL, NULL, NULL, 0);
+	ds_add_child_create(options, "timeout", "5", NULL, NULL, 0);
+	ds_add_child_create(options, "attempts", "2", NULL, NULL, 0);
 
 
 	// ietf-system-state
-	datastore_t *system_state = ds_add_child_create(&root, "system-state", NULL, ns);
+	datastore_t *system_state = ds_add_child_create(&root, "system-state", NULL, ns, NULL, 0);
 	ds_set_is_config(system_state, 0, 0);
 
-	datastore_t *platform  = ds_add_child_create(system_state, "platform", NULL, ns);
+	datastore_t *platform  = ds_add_child_create(system_state, "platform", NULL, ns, NULL, 0);
 
-	datastore_t *os_name = ds_add_child_create(platform, "os-name", "The awesome Linux", ns);
-	datastore_t *os_release = ds_add_child_create(platform, "os-release", "Top noch", ns);
-	datastore_t *os_version = ds_add_child_create(platform, "os-version", "latest", ns);
-	datastore_t *machine = ds_add_child_create(platform, "machine", "x86_64", ns);
+	datastore_t *os_name = ds_add_child_create(platform, "os-name", "The awesome Linux", ns, NULL, 0);
+	datastore_t *os_release = ds_add_child_create(platform, "os-release", "Top noch", ns, NULL, 0);
+	datastore_t *os_version = ds_add_child_create(platform, "os-version", "latest", ns, NULL, 0);
+	datastore_t *machine = ds_add_child_create(platform, "machine", "x86_64", ns, NULL, 0);
 
-	datastore_t *clock_state = ds_add_child_create(system_state, "clock", NULL, ns);
+	datastore_t *clock_state = ds_add_child_create(system_state, "clock", NULL, ns, NULL, 0);
 
-	datastore_t *current_datetime = ds_add_child_create(clock_state, "current_datetime", "now", ns);
-	datastore_t *boot_datetime = ds_add_child_create(clock_state, "boot-datetime", "before", ns);
+	datastore_t *current_datetime = ds_add_child_create(clock_state, "current_datetime", "now", ns, NULL, 0);
+	datastore_t *boot_datetime = ds_add_child_create(clock_state, "boot-datetime", "before", ns, NULL, 0);
 	return 0;
 }
 
@@ -141,7 +144,7 @@ int get(struct rpc_data *data)
 	}
 
 	// client requested filtered get
-	datastore_t *our_root = ds_find_child(&root, ro_root_name);
+	datastore_t *our_root = ds_find_child(&root, ro_root_name, NULL);
 	ds_get_filtered(ro_root, our_root, data->out, data->get_config);
 
 	return RPC_DATA;
@@ -150,7 +153,7 @@ int get(struct rpc_data *data)
 // edit-config
 int edit_config(struct rpc_data *data)
 {
-	return RPC_OK;
+	return ds_edit_config(data->in, root.child);
 }
 
 // RPC
@@ -166,6 +169,10 @@ int rpc_set_current_datetime(struct rpc_data *data)
 	if (system(cmd) == -1)
 		return RPC_ERROR;
 
+	DEBUG("rpc\n");
+	
+	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "data", NULL);
+	
 	return RPC_DATA;
 }
 
@@ -231,6 +238,6 @@ struct module *init()
 
 void destroy()
 {
-	ds_free(root.child);
+	ds_free(root.child, 1);
 	root.child = NULL;
 }
