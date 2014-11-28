@@ -466,7 +466,7 @@ int ds_edit_config(node_t* filter_root, datastore_t* our_root)
 					node_t *elem = roxml_get_chld(filter_root, NULL, i);
 
 					// recursive call to edit configs based on filter
-					rc = ds_edit_config(elem, our_root->child);
+					rc = ds_edit_config(elem, node->child);
 					if (!rc) return rc; // immediatelly return on error
 				}
 
@@ -489,24 +489,24 @@ int ds_edit_config(node_t* filter_root, datastore_t* our_root)
 				}
 			}
 		} else {
-			char *value = roxml_get_content(filter_root, NULL, 0, NULL);
-			if (!value || !strlen(value)) {
-				// search further
-				int child_count = roxml_get_chld_nb(filter_root);
+			int child_count = roxml_get_chld_nb(filter_root);
+			if (child_count) {
 				for (int i = 0; i < child_count; i++)
 				{
 					node_t *elem = roxml_get_chld(filter_root, NULL, i);
 
 					// recursive call to edit configs based on filter
 					rc = ds_edit_config(elem, our_root->child);
-					if (!rc) return rc; // immediatelly return on error
+					if (rc) return rc; // immediatelly return on error
 				}
 			} else {
 				// "normal"
+				char *value = roxml_get_content(filter_root, NULL, 0, NULL);
 				if (our_root->set) {
 					int sr = our_root->set(value);
 					if (sr) return RPC_ERROR;
-				} else ds_set_value(our_root, value);
+				}
+				ds_set_value(our_root, value);
 			}
 		}
 	}
