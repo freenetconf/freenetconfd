@@ -37,6 +37,8 @@ ds_key_t *ds_get_key_from_xml(node_t *root, datastore_t *our_root)
 			// if datastore provided see if tag with key_name has is_key flag
 			if (our_root && !ds_element_has_key_part(our_root, key_name, NULL))
 				continue;
+
+			// make sure key part is correctly allocated
 			if (!rc) {
 				rc = malloc(sizeof(ds_key_t));
 				cur_key = rc;
@@ -72,7 +74,6 @@ void ds_free(datastore_t *datastore, int free_siblings)
 {
 	if (!datastore) return;
 
-	DEBUG("name: %s\tfree_siblings: %d\n", datastore->name, free_siblings);
 	// make a clear end if we're not deleting root node
 	if (datastore->parent && !datastore->prev) datastore->parent->child = datastore->next;
 
@@ -97,7 +98,6 @@ void ds_free(datastore_t *datastore, int free_siblings)
 	} else if (datastore->prev) datastore->prev->next = NULL;
 
 	ds_free(datastore->child, 1); datastore->child = NULL;
-	DEBUG("prev: %s\tnext: %s\n", datastore->prev ? datastore->prev->name : "null", datastore->next ? datastore->next->name : "null");
 	free(datastore);
 }
 
@@ -188,6 +188,7 @@ datastore_t *ds_add_from_filter(datastore_t *datastore, node_t *filter_root)
 	if (!datastore || !filter_root) return NULL;
 
 	char *name = roxml_get_name(filter_root, NULL, 0);
+	DEBUG("add_from_filter( %s, %s )\n", name, roxml_get_content(filter_root, NULL, 0, NULL));
 	datastore_t *rc = ds_add_child_create(datastore,
 										  name,
 										  roxml_get_content(filter_root, NULL, 0, NULL),
@@ -235,7 +236,7 @@ int ds_element_has_key_part(datastore_t *elem, char *name, char *value)
 			// names match
 			if (!value || (cur->value && !strcmp(cur->value, value))) {
 				// if we don't need value or values match
-				return 1; // key found
+				return cur->is_key; // key found
 			}
 		}
 	}
@@ -433,7 +434,6 @@ int ds_edit_config(node_t* filter_root, datastore_t* our_root)
 		return -1;
 
 	int rc = 0;
-	DEBUG("filter_name: %s\tour_root->name: %s\tour_root->is_list: %d\n", filter_name, our_root->name, our_root->is_list);
 	// names differ
 	if (strcmp(filter_name, our_root->name)) {
 		// search in next or child element
@@ -442,6 +442,7 @@ int ds_edit_config(node_t* filter_root, datastore_t* our_root)
 		// names match
 		if (our_root->set_multiple) {
 			int smr = our_root->set_multiple(our_root, filter_root);
+			DEBUG("set_multiple( %s, %s )\n", our_root->name, roxml_get_name(filter_root, NULL, 0));
 			if (smr) return RPC_ERROR;
 		}
 		if (our_root->is_list) {
@@ -451,7 +452,11 @@ int ds_edit_config(node_t* filter_root, datastore_t* our_root)
 				datastore_t *node = ds_find_node_by_key(our_root, key);
 
 				// we should be able to find the node with that key
-				if (!node) return -1;
+				if (!node) {
+					DEBUG("!!!!!!!!!!!node\n");
+					ds_free_key(key);
+					return -1;
+				}
 
 				// replace values in datastore for all the values in filter
 				// remove key from xml
@@ -467,7 +472,11 @@ int ds_edit_config(node_t* filter_root, datastore_t* our_root)
 
 					// recursive call to edit configs based on filter
 					rc = ds_edit_config(elem, node->child);
-					if (!rc) return rc; // immediatelly return on error
+					if (rc) {
+						DEBUG("!!!!!!!!!!!rc\n");
+						ds_free_key(key);
+						return rc; // immediatelly return on error
+					}
 				}
 
 				ds_free_key(key);
@@ -502,6 +511,7 @@ int ds_edit_config(node_t* filter_root, datastore_t* our_root)
 			} else {
 				// "normal"
 				char *value = roxml_get_content(filter_root, NULL, 0, NULL);
+				DEBUG("set( %s, %s )\n", our_root->name, value);
 				if (our_root->set) {
 					int sr = our_root->set(value);
 					if (sr) return RPC_ERROR;
