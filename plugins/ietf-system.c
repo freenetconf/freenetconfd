@@ -14,7 +14,6 @@
  * along with freenetconfd. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <freenetconfd/plugin.h>
 #include <unistd.h>
 #include <sys/reboot.h>
 #include <linux/reboot.h>
@@ -23,28 +22,30 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 
-#include "../src/datastore.h"
 #include "../src/freenetconfd.h"
+#include "../src/datastore.h"
+
+#include "../include/freenetconfd/plugin.h"
+
+int rpc_set_current_datetime(struct rpc_data *data);
+int rpc_system_restart(struct rpc_data *data);
+int rpc_system_shutdown(struct rpc_data *data);
+
+__unused struct module *init();
+__unused void destroy();
 
 struct module m;
 char *ns = "urn:ietf:params:xml:ns:yang:ietf-system";
 
 datastore_t root = {"root",NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,0,0};
 
-char *get_hostname(datastore_t *node)
-{
-	char *rc = malloc(9);
-	strncpy(rc, "HOSTNAME", 9);
-	return rc;
-}
-
 // FIXME: this is only a prototype
-void generic_update(datastore_t *node)
+static void generic_update(datastore_t *node)
 {
 	if (node) printf("Datastore node UPDATE\t%s: %s\n", node->name, node->value);
 }
 
-int create_store()
+static int create_store()
 {
 	// ietf-system
 	datastore_t *system = ds_add_child_create(&root, "system", NULL, ns, NULL, 0);
@@ -53,19 +54,19 @@ int create_store()
 	datastore_t *location = ds_add_child_create(system, "location", "Zagreb", NULL, NULL, 0); // string
 	location->update = generic_update;
 	datastore_t *hostname = ds_add_child_create(system, "hostname", "localhost", NULL, NULL, 0); // string
-// 	hostname->get = get_hostname;
+	// hostname->get = get_hostname;
 	hostname->update = generic_update;
-	datastore_t *contact = ds_add_child_create(system, "contact", "yes, please", NULL, NULL, 0); // string
+	ds_add_child_create(system, "contact", "yes, please", NULL, NULL, 0); // string
 	datastore_t *clock = ds_add_child_create(system, "clock", NULL, NULL, NULL, 0);
 	datastore_t *ntp = ds_add_child_create(system, "ntp", NULL, NULL, NULL, 0);
 
 	// clock
 	datastore_t *timezone_location = ds_add_child_create(clock, "timezone-location", "Europe/Zagreb", NULL, NULL, 0); // string
 	timezone_location->update = generic_update;
-	datastore_t *timezone_utc_offset = ds_add_child_create(clock, "timezone-utc-offset", "60", NULL, NULL, 0); // int16
+	ds_add_child_create(clock, "timezone-utc-offset", "60", NULL, NULL, 0); // int16
 
 	// ntp
-	datastore_t *enabled = ds_add_child_create(ntp, "enabled", "false", NULL, NULL, 0); // bool
+	ds_add_child_create(ntp, "enabled", "false", NULL, NULL, 0); // bool
 
 	// server list
 	for (int i = 1; i < 3; i++) {
@@ -118,19 +119,18 @@ int create_store()
 
 	datastore_t *platform  = ds_add_child_create(system_state, "platform", NULL, ns, NULL, 0);
 
-	datastore_t *os_name = ds_add_child_create(platform, "os-name", "The awesome Linux", ns, NULL, 0);
-	datastore_t *os_release = ds_add_child_create(platform, "os-release", "Top noch", ns, NULL, 0);
-	datastore_t *os_version = ds_add_child_create(platform, "os-version", "latest", ns, NULL, 0);
-	datastore_t *machine = ds_add_child_create(platform, "machine", "x86_64", ns, NULL, 0);
+	ds_add_child_create(platform, "os-name", "The awesome Linux", ns, NULL, 0);
+	ds_add_child_create(platform, "os-release", "Top noch", ns, NULL, 0);
+	ds_add_child_create(platform, "os-version", "latest", ns, NULL, 0);
+	ds_add_child_create(platform, "machine", "x86_64", ns, NULL, 0);
 
 	datastore_t *clock_state = ds_add_child_create(system_state, "clock", NULL, ns, NULL, 0);
 
-	datastore_t *current_datetime = ds_add_child_create(clock_state, "current_datetime", "now", ns, NULL, 0);
-	datastore_t *boot_datetime = ds_add_child_create(clock_state, "boot-datetime", "before", ns, NULL, 0);
+	ds_add_child_create(clock_state, "current_datetime", "now", ns, NULL, 0);
+	ds_add_child_create(clock_state, "boot-datetime", "before", ns, NULL, 0);
+
 	return 0;
 }
-
-
 
 // RPC
 int rpc_set_current_datetime(struct rpc_data *data)
@@ -199,7 +199,7 @@ struct rpc_method rpc[] = {
 	{"system-shutdown", rpc_system_shutdown},
 };
 
-struct module *init()
+__unused struct module *init()
 {
 	create_store();
 
@@ -211,7 +211,7 @@ struct module *init()
 	return &m;
 }
 
-void destroy()
+__unused void destroy()
 {
 	ds_free(root.child, 1);
 	root.child = NULL;
