@@ -81,7 +81,8 @@ char *rpc_error_tags[__RPC_ERROR_TAG_COUNT] = {
 	"operation-not-supported",
 	"in-use",
 	"invalid-value",
-	"data-missing"
+	"data-missing",
+	"data-exists"
 };
 
 char *rpc_error_types[__RPC_ERROR_TYPE_COUNT] = {

@@ -26,6 +26,7 @@ typedef enum rpc_error_tag {
 		RPC_ERROR_TAG_IN_USE,
 		RPC_ERROR_TAG_INVALID_VALUE,
 		RPC_ERROR_TAG_DATA_MISSING,
+		RPC_ERROR_TAG_DATA_EXISTS,
 		__RPC_ERROR_TAG_COUNT
 } rpc_error_tag_t;
 

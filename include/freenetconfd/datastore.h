@@ -61,6 +61,16 @@ typedef struct ds_key {
 	struct ds_key *next;
 } ds_key_t;
 
+typedef struct ds_nip {
+	node_t *node;
+	struct ds_nip *next;
+	int is_head;
+} ds_nip_t;
+
+enum ds_operation {OPERATION_MERGE, OPERATION_REPLACE = 0, OPERATION_CREATE, OPERATION_DELETE, OPERATION_REMOVE};
+
+enum ds_operation ds_get_operation(node_t *node);
+
 /**
  * datastore_print_key() - prints all key names and values on standard output
  * in a human readable format
@@ -136,6 +146,13 @@ void ds_free( datastore_t *datastore, int free_siblings );
 datastore_t *ds_create(char *name, char *value, char *ns);
 
 /**
+ * ds_create_path() creates the same path in root, as that of path_endpoint
+ *
+ * Return: node in datastore that matches that of path_endpoint
+ */
+datastore_t *ds_create_path(datastore_t *root, node_t *path_endpoint);
+
+/**
  * ds_set_value() - sets value to datastore
  *
  * @datastore datastore node to set value to
@@ -175,7 +192,7 @@ void ds_add_child(datastore_t *self, datastore_t *child, char *target_name, int 
 
 datastore_t *ds_add_child_create(datastore_t *datastore, char *name, char *value, char *ns, char *target_name, int target_position);
 
-datastore_t *ds_add_from_filter(datastore_t *datastore, node_t *filter_root);
+datastore_t *ds_add_from_filter(datastore_t *datastore, node_t *filter_root, ds_nip_t *nip);
 
 datastore_t *ds_find_sibling( datastore_t *root, char *name, char *value );
 
@@ -227,6 +244,11 @@ void ds_get_list_data(node_t* filter_root, datastore_t* node, node_t* out, int g
 
 void ds_get_filtered(node_t *filter_root, datastore_t *our_root, node_t *out, int get_config);
 
-int ds_edit_config(node_t *filter_root, datastore_t *our_root);
+/**
+ * ds_edit_config()
+ *
+ * @nodes_in_processing set it to NULL when manually calling ds_edit_config
+ */
+int ds_edit_config(node_t *filter_root, datastore_t *our_root, ds_nip_t *nodes_in_processing);
 
 #endif /* __FREENETCONFD_DATASTORE_H__ */

@@ -22,7 +22,7 @@
 #include <libubox/list.h>
 #include <roxml.h>
 
-enum response {RPC_OK, RPC_OK_CLOSE, RPC_DATA, RPC_ERROR};
+enum response {RPC_OK, RPC_OK_CLOSE, RPC_DATA, RPC_ERROR, RPC_DATA_EXISTS, RPC_DATA_MISSING};
 
 struct rpc_data {
 	node_t *in;

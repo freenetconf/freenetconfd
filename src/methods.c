@@ -270,9 +270,32 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 		break;
 
 		case RPC_ERROR:
-
 			if (!data.error)
 				data.error = netconf_rpc_error("UNKNOWN ERROR", 0, 0, 0);
+
+			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "rpc_error", data.error);
+
+			free(data.error);
+			data.error = NULL;
+
+			rc = 0;
+		break;
+
+		case RPC_DATA_EXISTS:
+			if (!data.error)
+				data.error = netconf_rpc_error("Data exists!", RPC_ERROR_TAG_DATA_EXISTS, RPC_ERROR_TYPE_RPC, RPC_ERROR_SEVERITY_ERROR);
+
+			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "rpc_error", data.error);
+
+			free(data.error);
+			data.error = NULL;
+
+			rc = 0;
+		break;
+
+		case RPC_DATA_MISSING:
+			if (!data.error)
+				data.error = netconf_rpc_error("Data missing!", RPC_ERROR_TAG_DATA_MISSING, RPC_ERROR_TYPE_RPC, RPC_ERROR_SEVERITY_ERROR);
 
 			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "rpc_error", data.error);
 
@@ -381,6 +404,8 @@ method_handle_edit_config(struct rpc_data *data)
 	struct list_head *modules = get_modules();
 	struct module_list *elem;
 
+	int rc = RPC_OK;
+
 	int child_count = roxml_get_chld_nb(config);
 	for (int i = 0; i < child_count; i++) {
 		node_t *cur = roxml_get_chld(config, NULL, i);
@@ -395,12 +420,12 @@ method_handle_edit_config(struct rpc_data *data)
 
 			if (!strcmp(ns, elem->m->ns)) {
 				DEBUG("calling module: %s (%s) \n", module, ns);
-				ds_edit_config(cur, elem->m->datastore->child);
+				rc = ds_edit_config(cur, elem->m->datastore->child, NULL);
 				break;
 			}
 		}
 	}
-	return RPC_OK;
+	return rc;
 }
 
 static int
