@@ -25,11 +25,13 @@
 #include "config.h"
 #include "modules.h"
 #include "netconf.h"
+#include "datastore.h"
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
 #endif
 
+static int get(struct rpc_data *data, datastore_t *datastore);
 static int method_handle_get(struct rpc_data *data);
 static int method_handle_get_config(struct rpc_data *data);
 static int method_handle_edit_config(struct rpc_data *data);
@@ -322,7 +324,9 @@ method_handle_get(struct rpc_data *data)
 				if (!strcmp(ns, elem->m->ns)) {
 					DEBUG("calling module: %s (%s) \n", module, ns);
 					struct rpc_data d = {n, n_data, NULL, 0};
-					elem->m->get(&d);
+					
+					get(&d, elem->m->datastore);
+					
 					break;
 				}
 			}
@@ -333,58 +337,38 @@ method_handle_get(struct rpc_data *data)
 			DEBUG("calling module: %s\n", elem->name);
 			n=data->in;
 			struct rpc_data d = {n, n_data, NULL, 0};
-			elem->m->get(&d);
+			get(&d, elem->m->datastore);
 		}
 	}
 
 	return RPC_DATA;
 }
 
+static int get(struct rpc_data *data, datastore_t *datastore)
+{
+	node_t *ro_root = data->in;
+	char *ro_root_name = roxml_get_name(ro_root, NULL, 0);
+
+	// client requested get all
+	if (ro_root_name && !strcmp("get", ro_root_name)) {
+		ds_get_all(datastore->child, data->out, data->get_config, 1);
+
+		return RPC_DATA;
+	}
+
+	// client requested filtered get
+	datastore_t *our_root = ds_find_child(datastore, ro_root_name, NULL);
+	ds_get_filtered(ro_root, our_root, data->out, data->get_config);
+
+	return RPC_DATA;
+}
+
+
 static int
 method_handle_get_config(struct rpc_data *data)
 {
-	node_t *n_data = roxml_add_node(data->out, 0, ROXML_ELM_NODE, "data", NULL);
-
-	int nb = 0;
-	node_t **n_filter, *n;
-
-	struct list_head *modules = get_modules();
-	struct module_list *elem;
-
-	if ((n_filter = roxml_xpath(data->in, "//filter",&nb))) {
-		nb = roxml_get_chld_nb(n_filter[0]);
-
-		/* empty filter */
-		if (!nb)
-			return RPC_DATA;
-
-		while(--nb >= 0) {
-			n = roxml_get_chld(n_filter[0], NULL, nb);
-			char *module = roxml_get_name(n, NULL, 0);
-			char *ns = roxml_get_content(roxml_get_ns(n), NULL, 0, NULL);
-			DEBUG("filter for module: %s (%s)\n", module, ns);
-
-			list_for_each_entry(elem, modules, list) {
-				DEBUG("module: %s\n", elem->name);
-				if (!strcmp(ns, elem->m->ns)) {
-					DEBUG("calling module: %s (%s) \n", module, ns);
-					struct rpc_data d = {n, n_data, NULL, 1};
-					elem->m->get(&d);
-					break;
-				}
-			}
-		}
-	} else {
-		DEBUG("no filter requested, processing all modules\n");
-		list_for_each_entry(elem, modules, list) {
-			DEBUG("calling module: %s\n", elem->name);
-			n=data->in;
-			struct rpc_data d = {n, n_data, NULL, 1};
-			elem->m->get(&d);
-		}
-	}
-
-	return RPC_DATA;
+	// TODO: merge with get
+	return method_handle_get(data);
 }
 
 static int
@@ -410,8 +394,7 @@ method_handle_edit_config(struct rpc_data *data)
 
 			if (!strcmp(ns, elem->m->ns)) {
 				DEBUG("calling module: %s (%s) \n", module, ns);
-				struct rpc_data d = {cur, data->out, NULL, -1};
-				elem->m->edit_config(&d);
+				ds_edit_config(cur, elem->m->datastore->child);
 				break;
 			}
 		}

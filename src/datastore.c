@@ -277,6 +277,7 @@ datastore_t *ds_find_node_by_key(datastore_t *our_root, ds_key_t *key)
 	return NULL;
 }
 
+
 void ds_get_all(datastore_t *our_root, node_t *out, int get_config, int check_siblings)
 {
 	if (!our_root) return;

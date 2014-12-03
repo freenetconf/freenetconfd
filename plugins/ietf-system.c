@@ -130,31 +130,7 @@ int create_store()
 	return 0;
 }
 
-// get
-int get(struct rpc_data *data)
-{
-	node_t *ro_root = data->in;
-	char *ro_root_name = roxml_get_name(ro_root, NULL, 0);
 
-	// client requested get all
-	if (ro_root_name && !strcmp("get", ro_root_name)) {
-		ds_get_all(root.child, data->out, data->get_config, 1);
-
-		return RPC_DATA;
-	}
-
-	// client requested filtered get
-	datastore_t *our_root = ds_find_child(&root, ro_root_name, NULL);
-	ds_get_filtered(ro_root, our_root, data->out, data->get_config);
-
-	return RPC_DATA;
-}
-
-// edit-config
-int edit_config(struct rpc_data *data)
-{
-	return ds_edit_config(data->in, root.child);
-}
 
 // RPC
 int rpc_set_current_datetime(struct rpc_data *data)
@@ -227,11 +203,10 @@ struct module *init()
 {
 	create_store();
 
-	m.get = get;
-	m.edit_config = edit_config;
 	m.rpcs = rpc;
 	m.rpc_count = (sizeof(rpc) / sizeof(*(rpc))); // to be filled directly by code generator
 	m.ns = ns;
+	m.datastore = &root;
 
 	return &m;
 }

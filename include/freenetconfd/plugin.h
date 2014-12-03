@@ -20,6 +20,8 @@
 #include <libubox/list.h>
 #include <roxml.h>
 
+#include "../../src/datastore.h"
+
 enum response {RPC_OK, RPC_OK_CLOSE, RPC_DATA, RPC_ERROR};
 
 struct rpc_data {
@@ -36,11 +38,10 @@ struct rpc_method {
 };
 
 struct module {
-	int (*get) (struct rpc_data *data);
-	int (*edit_config) (struct rpc_data *data);
 	const struct rpc_method *rpcs;
 	int rpc_count;
-	char* ns;
+	char *ns;
+	struct datastore *datastore;
 };
 
 struct module_list {
