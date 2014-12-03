@@ -14,8 +14,8 @@
  * along with freenetconfd. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __CONFIG_H__
-#define __CONFIG_H__
+#ifndef __FREENETCONFD_CONFIG_H__
+#define __FREENETCONFD_CONFIG_H__
 
 #include <inttypes.h>
 #include <stdbool.h>
@@ -30,4 +30,4 @@ struct config_t {
 	char *modules_dir;
 } config;
 
-#endif /* __CONFIG_H__ */
+#endif /* __FREENETCONFD_CONFIG_H__ */

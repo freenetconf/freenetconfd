@@ -1,5 +1,22 @@
-#ifndef __DATASTORE_H_
-#define __DATASTORE_H_
+/*
+ * Copyright (C) 2014 Cisco Systems, Inc.
+ * Copyright (C) 2014 Sartura, Ltd.
+ *
+ * Author: Zvonimir Fras <zvonimir.fras@sartura.hr>
+ * Author: Luka Perkov <luka.perkov@sartura.hr>
+ * Author: Petar Koretic <petar.koretic@sartura.hr>
+ *
+ * freenetconfd is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with freenetconfd. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#ifndef __FREENETCONFD_DATASTORE_H__
+#define __FREENETCONFD_DATASTORE_H__
 
 #include <freenetconfd/plugin.h>
 
@@ -212,4 +229,4 @@ void ds_get_filtered(node_t *filter_root, datastore_t *our_root, node_t *out, in
 
 int ds_edit_config(node_t *filter_root, datastore_t *our_root);
 
-#endif /* __DATASTORE_H_ */
+#endif /* __FREENETCONFD_DATASTORE_H__ */

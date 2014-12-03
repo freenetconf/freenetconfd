@@ -555,4 +555,3 @@ exit:
 
 	return RPC_DATA;
 }
-

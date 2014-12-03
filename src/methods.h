@@ -14,11 +14,11 @@
  * along with freenetconfd. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __METHODS_H__
-#define __METHODS_H__
+#ifndef __FREENETCONFD_METHODS_H__
+#define __FREENETCONFD_METHODS_H__
 
 int method_analyze_message_hello(char *method_in, int *base);
 int method_create_message_hello(char **method_out);
 int method_handle_message_rpc(char *method_in, char **method_out);
 
-#endif /* __METHODS__ */
+#endif /* __FREENETCONFD_METHODS_H__ */

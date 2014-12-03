@@ -14,10 +14,10 @@
  * along with freenetconfd. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __UBUS_H__
-#define __UBUS_H__
+#ifndef __FREENETCONFD_UBUS_H__
+#define __FREENETCONFD_UBUS_H__
 
 int ubus_init(void);
 void ubus_exit(void);
 
-#endif /* __UBUS_H__ */
+#endif /* __FREENETCONFD_UBUS_H__ */

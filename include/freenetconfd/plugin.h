@@ -14,8 +14,8 @@
  * along with freenetconfd. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __FREENETCONFD_PLUGIN_H_
-#define __FREENETCONFD_PLUGIN_H_
+#ifndef __FREENETCONFD_PLUGIN_H__
+#define __FREENETCONFD_PLUGIN_H__
 
 #include <freenetconfd/datastore.h>
 
@@ -51,4 +51,4 @@ struct module_list {
 	const struct module *m;
 };
 
-#endif /* __FREENETCONFD_PLUGIN_H_ */
+#endif /* __FREENETCONFD_PLUGIN_H__ */

@@ -14,7 +14,8 @@
  * along with freenetconfd. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __NETCONF_H__
+#ifndef __FREENETCONFD_NETCONF_H__
+#define __FREENETCONFD_NETCONF_H__
 
 int netconf_capabilites_from_yang(char *yang_dir, char ***capabilities);
 
@@ -44,6 +45,4 @@ typedef enum rpc_error_severity {
 char* netconf_rpc_error(char *msg, enum rpc_error_tag, enum rpc_error_type, enum rpc_error_severity);
 
 
-#define __NETCONF_H__
-
-#endif /* __NETCONF__ */
+#endif /* __FREENETCONFD_NETCONF_H__ */
