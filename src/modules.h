@@ -14,8 +14,8 @@
  * along with freenetconfd. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __METHODS_H_
-#define __METHODS_H_
+#ifndef __FREENETCONFD_MODULES_H_
+#define __FREENETCONFD_MODULES_H_
 
 #include <freenetconfd/plugin.h>
 #include <libubox/list.h>
@@ -27,4 +27,4 @@ int modules_reload(char *module_name);
 int modules_init();
 struct list_head *get_modules();
 
-#endif /* __METHODS_H_ */
+#endif /* __FREENETCONFD_MODULES_H_ */

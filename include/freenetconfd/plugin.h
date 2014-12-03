@@ -17,10 +17,10 @@
 #ifndef __FREENETCONFD_PLUGIN_H_
 #define __FREENETCONFD_PLUGIN_H_
 
+#include <freenetconfd/datastore.h>
+
 #include <libubox/list.h>
 #include <roxml.h>
-
-#include "../../src/datastore.h"
 
 enum response {RPC_OK, RPC_OK_CLOSE, RPC_DATA, RPC_ERROR};
 

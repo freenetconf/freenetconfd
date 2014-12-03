@@ -1,8 +1,9 @@
 #ifndef __DATASTORE_H_
 #define __DATASTORE_H_
 
+#include <freenetconfd/plugin.h>
+
 #include <roxml.h>
-#include "freenetconfd/plugin.h"
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
