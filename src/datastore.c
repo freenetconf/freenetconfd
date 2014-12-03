@@ -1,5 +1,5 @@
-#include "datastore.h"
-#include "freenetconfd.h"
+#include "freenetconfd/freenetconfd.h"
+#include "freenetconfd/datastore.h"
 #include "freenetconfd/plugin.h"
 
 

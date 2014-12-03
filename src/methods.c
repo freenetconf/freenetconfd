@@ -19,13 +19,14 @@
 #include <roxml.h>
 #include <stdint.h>
 
+#include "freenetconfd/freenetconfd.h"
+#include "freenetconfd/datastore.h"
+
 #include "methods.h"
-#include "freenetconfd.h"
 #include "messages.h"
 #include "config.h"
 #include "modules.h"
 #include "netconf.h"
-#include "datastore.h"
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))

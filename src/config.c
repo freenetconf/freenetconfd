@@ -23,8 +23,9 @@
 #include <libgen.h>
 #include <sys/stat.h>
 
+#include "freenetconfd/freenetconfd.h"
+
 #include "config.h"
-#include "freenetconfd.h"
 
 enum {
 	ADDR,

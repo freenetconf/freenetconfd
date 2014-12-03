@@ -14,15 +14,16 @@
  * along with freenetconfd. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "modules.h"
-#include "config.h"
-#include "freenetconfd.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <dlfcn.h>
 #include <dirent.h>
 #include <string.h>
+
+#include "freenetconfd/freenetconfd.h"
+
+#include "modules.h"
+#include "config.h"
 
 LIST_HEAD(module_list);
 

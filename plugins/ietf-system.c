@@ -22,10 +22,9 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 
-#include "../src/freenetconfd.h"
-#include "../src/datastore.h"
-
-#include "../include/freenetconfd/plugin.h"
+#include "freenetconfd/freenetconfd.h"
+#include "freenetconfd/datastore.h"
+#include "freenetconfd/plugin.h"
 
 int rpc_set_current_datetime(struct rpc_data *data);
 int rpc_system_restart(struct rpc_data *data);

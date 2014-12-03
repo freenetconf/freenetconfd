@@ -23,8 +23,9 @@
 #include <libubox/usock.h>
 #include <libubox/ustream.h>
 
+#include "freenetconfd/freenetconfd.h"
+
 #include "config.h"
-#include "freenetconfd.h"
 #include "messages.h"
 #include "connection.h"
 #include "methods.h"

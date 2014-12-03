@@ -20,7 +20,8 @@
 
 #include <libubox/uloop.h>
 
-#include "freenetconfd.h"
+#include "freenetconfd/freenetconfd.h"
+
 #include "connection.h"
 #include "config.h"
 #include "modules.h"

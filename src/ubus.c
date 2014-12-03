@@ -18,9 +18,9 @@
 #include <unistd.h>
 #include <libubus.h>
 
-#include "ubus.h"
+#include "freenetconfd/freenetconfd.h"
 
-#include "freenetconfd.h"
+#include "ubus.h"
 
 static struct ubus_context *ubus = NULL;
 static struct ubus_object main_object;

@@ -1,5 +1,6 @@
+#include "freenetconfd/freenetconfd.h"
+
 #include "netconf.h"
-#include "freenetconfd.h"
 #include "messages.h"
 
 #include <dirent.h>

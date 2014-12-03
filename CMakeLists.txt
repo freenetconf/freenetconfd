@@ -13,7 +13,7 @@ SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib/freenetconfd)
 
 SET(SOURCES
 	src/freenetconfd.c
-	src/freenetconfd.h
+	include/freenetconfd/freenetconfd.h
 	src/connection.c
 	src/connection.h
 	src/ubus.c
@@ -27,7 +27,8 @@ SET(SOURCES
 	src/netconf.c
 	src/netconf.h
 	src/datastore.c
-	src/datastore.h
+	include/freenetconfd/datastore.h
+	include/freenetconfd/plugin.h
 )
 
 ADD_EXECUTABLE(freenetconfd ${SOURCES})
@@ -50,7 +51,8 @@ INCLUDE_DIRECTORIES(${UCI_INCLUDE_DIR})
 TARGET_LINK_LIBRARIES(freenetconfd ${UCI_LIBRARIES} ${CMAKE_DL_LIBS})
 
 
-SET(PLUGIN_INCLUDE_FILES src/freenetconfd.h src/datastore.h include/freenetconfd/plugin.h)
+SET(PLUGIN_INCLUDE_FILES include/freenetconfd/freenetconfd.h include/freenetconfd/datastore.h include/freenetconfd/plugin.h)
+INSTALL(FILES ${PLUGIN_INCLUDE_FILES} DESTINATION include/freenetconfd)
 
 IF (PLUGIN_SUPPORT)
   ADD_LIBRARY(plugin_ietf_system MODULE plugins/ietf-system.c ${PLUGIN_INCLUDE_FILES})
