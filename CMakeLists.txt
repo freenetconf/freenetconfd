@@ -52,13 +52,13 @@ TARGET_LINK_LIBRARIES(freenetconfd ${UCI_LIBRARIES} ${CMAKE_DL_LIBS})
 
 
 SET(PLUGIN_INCLUDE_FILES include/freenetconfd/freenetconfd.h include/freenetconfd/datastore.h include/freenetconfd/plugin.h)
-INSTALL(FILES ${PLUGIN_INCLUDE_FILES} DESTINATION include/freenetconfd)
+INSTALL(FILES ${PLUGIN_INCLUDE_FILES} DESTINATION usr/include/freenetconfd)
 
 IF (PLUGIN_SUPPORT)
   ADD_LIBRARY(plugin_ietf_system MODULE plugins/ietf-system.c ${PLUGIN_INCLUDE_FILES})
   SET_TARGET_PROPERTIES(plugin_ietf_system PROPERTIES OUTPUT_NAME ietf-system PREFIX "")
-  INSTALL(TARGETS plugin_ietf_system LIBRARY DESTINATION lib/freenetconfd)
+  INSTALL(TARGETS plugin_ietf_system LIBRARY DESTINATION usr/lib/freenetconfd)
   INSTALL(FILES yang/ietf-system@2014-08-06.yang DESTINATION etc/yang/)
 ENDIF ()
 
-INSTALL(TARGETS freenetconfd RUNTIME DESTINATION bin)
+INSTALL(TARGETS freenetconfd RUNTIME DESTINATION usr/bin)
