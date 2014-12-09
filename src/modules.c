@@ -52,14 +52,18 @@ static int module_load(char *modules_path, char *name, struct module_list **e)
 	snprintf(module_path, BUFSIZ, "%s/%s", modules_path, name);
 
 	lib = dlopen(module_path, RTLD_LAZY);
-	if (!lib) {
+
+	if (!lib)
+	{
 		ERROR("%s\n", dlerror());
 
 		return 1;
 	}
 
-	init = dlsym(lib,"init");
-	if (!init) {
+	init = dlsym(lib, "init");
+
+	if (!init)
+	{
 		dlclose(lib);
 
 		return 2;
@@ -67,7 +71,9 @@ static int module_load(char *modules_path, char *name, struct module_list **e)
 
 	// load module data
 	(*e)->m = init();
-	if (!(*e)->m) {
+
+	if (!(*e)->m)
+	{
 		dlclose(lib);
 		free(*e);
 
@@ -83,7 +89,8 @@ static int module_load(char *modules_path, char *name, struct module_list **e)
 static void module_unload(struct module_list **elem)
 {
 	void (*destroy)();
-	destroy = dlsym((*elem)->lib,"destroy");
+	destroy = dlsym((*elem)->lib, "destroy");
+
 	if (destroy) destroy();
 
 	free((*elem)->name);
@@ -98,18 +105,22 @@ int modules_load(char *modules_path, struct list_head *module_list)
 	struct dirent *file;
 	int rc = 0;
 
-	if ((dir = opendir(modules_path)) == NULL) {
+	if ((dir = opendir(modules_path)) == NULL)
+	{
 		ERROR("unable to open modules dir: %s\n", modules_path);
 		return 1;
 	}
 
-	while ((file = readdir(dir)) != NULL) {
-		if(!strstr(file->d_name, ".so"))
+	while ((file = readdir(dir)) != NULL)
+	{
+		if (!strstr(file->d_name, ".so"))
 			continue;
 
 		struct module_list *e;
 		rc = module_load(modules_path, file->d_name, &e);
-		if (rc) {
+
+		if (rc)
+		{
 			ERROR("unable to load module: '%s' (%d)\n", file->d_name, rc);
 			closedir (dir);
 			return 1;
@@ -128,7 +139,8 @@ int modules_load(char *modules_path, struct list_head *module_list)
 int modules_unload()
 {
 	struct module_list *elem, *next;
-	list_for_each_entry_safe(elem, next, &module_list, list) {
+	list_for_each_entry_safe(elem, next, &module_list, list)
+	{
 		DEBUG("unloading module: '%s'\n", elem->name);
 		module_unload(&elem);
 	}
@@ -139,13 +151,16 @@ int modules_unload()
 int modules_reload(char *module_name)
 {
 	struct module_list *elem, *next;
-	list_for_each_entry_safe(elem, next, &module_list, list) {
+	list_for_each_entry_safe(elem, next, &module_list, list)
+	{
 		// reload all modules
-		if (!module_name) {
+		if (!module_name)
+		{
 			module_unload(&elem);
 		}
 		// reload specific module if exists
-		else if (!strcmp(module_name, elem->name)) {
+		else if (!strcmp(module_name, elem->name))
+		{
 			module_unload(&elem);
 
 			return module_load(config.modules_dir, module_name, &elem);

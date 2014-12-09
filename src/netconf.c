@@ -31,12 +31,14 @@ int netconf_capabilites_from_yang(char *yang_dir, char ***capabilities)
 	int rc = 0;
 	char *revision;
 
-	if (!yang_dir) {
+	if (!yang_dir)
+	{
 		ERROR("yang dir not specified\n");
 		return 1;
 	}
 
-	if ((dir = opendir(yang_dir)) == NULL) {
+	if ((dir = opendir(yang_dir)) == NULL)
+	{
 		ERROR("openning yang directory failed:%s\n", yang_dir);
 		return 1;
 	}
@@ -45,9 +47,10 @@ int netconf_capabilites_from_yang(char *yang_dir, char ***capabilities)
 
 	capabilities = NULL;
 
-	while ((file = readdir (dir)) != NULL) {
+	while ((file = readdir (dir)) != NULL)
+	{
 
-		capabilities = realloc(capabilities, i+1);
+		capabilities = realloc(capabilities, i + 1);
 
 		// list only yang files
 		char *ext = strstr(file->d_name, ".yang");
@@ -60,13 +63,15 @@ int netconf_capabilites_from_yang(char *yang_dir, char ***capabilities)
 		// remove extension
 		ext[0] = 0;
 
-		revision = strstr(file->d_name,"@");
+		revision = strstr(file->d_name, "@");
 
-		if (!revision) {
-			asprintf(capabilities[i],"<capability>%s:%s%s</capability>", YANG_NAMESPACE, file->d_name, "?module=");
+		if (!revision)
+		{
+			asprintf(capabilities[i], "<capability>%s:%s%s</capability>", YANG_NAMESPACE, file->d_name, "?module=");
 		}
-		else {
-			asprintf(capabilities[i],"<capability>%s:%s%s&amp;revision=%s</capability>", YANG_NAMESPACE, file->d_name, "?module=", revision + 1);
+		else
+		{
+			asprintf(capabilities[i], "<capability>%s:%s%s&amp;revision=%s</capability>", YANG_NAMESPACE, file->d_name, "?module=", revision + 1);
 		}
 	}
 
@@ -76,7 +81,8 @@ int netconf_capabilites_from_yang(char *yang_dir, char ***capabilities)
 	return rc;
 }
 
-char *rpc_error_tags[__RPC_ERROR_TAG_COUNT] = {
+char *rpc_error_tags[__RPC_ERROR_TAG_COUNT] =
+{
 	"operation-failed",
 	"operation-not-supported",
 	"in-use",
@@ -85,7 +91,8 @@ char *rpc_error_tags[__RPC_ERROR_TAG_COUNT] = {
 	"data-exists"
 };
 
-char *rpc_error_types[__RPC_ERROR_TYPE_COUNT] = {
+char *rpc_error_types[__RPC_ERROR_TYPE_COUNT] =
+{
 	"transport",
 	"rpc",
 	"protocol",
@@ -93,12 +100,13 @@ char *rpc_error_types[__RPC_ERROR_TYPE_COUNT] = {
 };
 
 
-char *rpc_error_severities[__RPC_ERROR_SEVERITY_COUNT] = {
+char *rpc_error_severities[__RPC_ERROR_SEVERITY_COUNT] =
+{
 	"error",
 	"warning"
 };
 
-char* netconf_rpc_error(char *msg, rpc_error_tag_t rpc_error_tag, rpc_error_type_t rpc_error_type, rpc_error_severity_t rpc_error_severity )
+char *netconf_rpc_error(char *msg, rpc_error_tag_t rpc_error_tag, rpc_error_type_t rpc_error_type, rpc_error_severity_t rpc_error_severity )
 {
 	// defaults
 	char *tag = "operation-failed";

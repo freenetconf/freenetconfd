@@ -27,7 +27,8 @@
 
 #include "config.h"
 
-enum {
+enum
+{
 	ADDR,
 	PORT,
 	YANG_DIR,
@@ -35,13 +36,15 @@ enum {
 	__OPTIONS_COUNT
 };
 
-const struct blobmsg_policy config_policy[__OPTIONS_COUNT] = {
+const struct blobmsg_policy config_policy[__OPTIONS_COUNT] =
+{
 	[ADDR] = { .name = "addr", .type = BLOBMSG_TYPE_STRING },
 	[PORT] = { .name = "port", .type = BLOBMSG_TYPE_STRING },
 	[YANG_DIR] = { .name = "yang_dir", .type = BLOBMSG_TYPE_STRING },
 	[MODULES_DIR] = { .name = "modules_dir", .type = BLOBMSG_TYPE_STRING }
 };
-const struct uci_blob_param_list config_attr_list = {
+const struct uci_blob_param_list config_attr_list =
+{
 	.n_params = __OPTIONS_COUNT,
 	.params = config_policy
 };
@@ -59,7 +62,8 @@ int config_load(void)
 	struct blob_attr *tb[__OPTIONS_COUNT], *c;
 	static struct blob_buf buf;
 
-	if (uci_load(uci, "freenetconfd", &conf)) {
+	if (uci_load(uci, "freenetconfd", &conf))
+	{
 		uci_free_context(uci);
 		return -1;
 	}
@@ -67,7 +71,8 @@ int config_load(void)
 	blob_buf_init(&buf, 0);
 
 	struct uci_element *section_elem;
-	uci_foreach_element(&conf->sections, section_elem) {
+	uci_foreach_element(&conf->sections, section_elem)
+	{
 		struct uci_section *s = uci_to_section(section_elem);
 		uci_to_blob(&buf, s, &config_attr_list);
 	}
@@ -92,7 +97,8 @@ int config_load(void)
 	if ((c = tb[MODULES_DIR]))
 		config.modules_dir = strdup(blobmsg_get_string(c));
 
-	if (!(config.modules_dir)) {
+	if (!(config.modules_dir))
+	{
 		ERROR("modules directory must be set\n");
 		uci_unload(uci, conf);
 		uci_free_context(uci);

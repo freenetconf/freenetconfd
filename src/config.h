@@ -23,7 +23,8 @@
 int config_load(void);
 void config_exit(void);
 
-struct config_t {
+struct config_t
+{
 	char *addr;
 	char *port;
 	char *yang_dir;

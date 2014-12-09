@@ -36,7 +36,8 @@ static void connection_close(struct ustream *s);
 static struct uloop_fd server = { .cb = connection_accept_cb };
 static struct connection *next_connection = NULL;
 
-enum netconf_msg_step {
+enum netconf_msg_step
+{
 	NETCONF_MSG_STEP_HELLO,
 	NETCONF_MSG_STEP_HELLO_BUF,
 	NETCONF_MSG_STEP_HEADER_0,
@@ -49,7 +50,8 @@ enum netconf_msg_step {
 	__NETCONF_MSG_STEP_MAX
 };
 
-struct connection {
+struct connection
+{
 	struct sockaddr_in sin;
 	struct ustream_fd us;
 	int step;
@@ -80,166 +82,192 @@ static void notify_read(struct ustream *s, int bytes)
 
 	DEBUG("starting to read incoming data\n");
 
-	do {
+	do
+	{
 		data = ustream_get_read_buf(s, &data_len);
-		if (!data) break;
-		switch (c->step) {
-		case NETCONF_MSG_STEP_HELLO:
-			DEBUG("handling hello\n");
 
-			buf1 = strchr(data, '<');
-			if (!buf1) {
-				LOG("start of hello message was not found");
-				connection_close(s);
-				return;
-			}
-
-			if (buf1 != data) {
-				LOG("start of hello message not found where expected");
-				connection_close(s);
-				return;
-			}
-
-			buf2 = strstr(buf1, XML_NETCONF_BASE_1_0_END);
-			if (!buf2) {
-				c->step = NETCONF_MSG_STEP_HELLO_BUF;
-				break;
-			}
-
-			*buf2 = '\0';
-
-			rc = method_analyze_message_hello(buf1, &c->base);
-			if (rc) {
-				connection_close(s);
-				return;
-			}
-
-			ustream_consume(s, buf2 + strlen(XML_NETCONF_BASE_1_0_END) - data);
-
-			if (c->base)
-				c->step = NETCONF_MSG_STEP_HEADER_1;
-			else
-				c->step = NETCONF_MSG_STEP_HEADER_0;
-
-			break;
-
-		case NETCONF_MSG_STEP_HELLO_BUF:
-			DEBUG("handling hello buf\n");
-
-			/* FIXME */
-			connection_close(s);
-
-			break;
-
-		default:
-			break;
-		}
-
-		data = ustream_get_read_buf(s, &data_len);
 		if (!data) break;
 
-		switch (c->step) {
-		case NETCONF_MSG_STEP_HEADER_1:
-			DEBUG("handling data header (1.1)\n");
-			buf1 = strchr(data, '#');
-			if (!buf1) {
-				ustream_consume(s, data_len);
-				return;
-			}
+		switch (c->step)
+		{
+			case NETCONF_MSG_STEP_HELLO:
+				DEBUG("handling hello\n");
 
-			buf2 = strstr(buf1, "\n<");
-			if (!buf2) {
-				connection_close(s);
-				return;
-			}
+				buf1 = strchr(data, '<');
 
-			*buf1 = ' ';
-			c->msg_len = strtoull(data, NULL, 10);
-			DEBUG("expecting incoming message length: %" PRIu64 "\n", c->msg_len);
+				if (!buf1)
+				{
+					LOG("start of hello message was not found");
+					connection_close(s);
+					return;
+				}
 
-			ustream_consume(s, buf2 + 1 - data);
-			c->step = NETCONF_MSG_STEP_DATA_1;
+				if (buf1 != data)
+				{
+					LOG("start of hello message not found where expected");
+					connection_close(s);
+					return;
+				}
 
-			break;
+				buf2 = strstr(buf1, XML_NETCONF_BASE_1_0_END);
 
-		case NETCONF_MSG_STEP_HEADER_1_BUF:
-			DEBUG("handling data header buf (1.1)\n");
+				if (!buf2)
+				{
+					c->step = NETCONF_MSG_STEP_HELLO_BUF;
+					break;
+				}
 
-			/* FIXME */
-			connection_close(s);
+				*buf2 = '\0';
 
-			break;
+				rc = method_analyze_message_hello(buf1, &c->base);
 
-		default:
-			break;
-		}
+				if (rc)
+				{
+					connection_close(s);
+					return;
+				}
 
-		data = ustream_get_read_buf(s, &data_len);
-		if (!data) break;
+				ustream_consume(s, buf2 + strlen(XML_NETCONF_BASE_1_0_END) - data);
 
-		switch (c->step) {
-		case NETCONF_MSG_STEP_DATA_1:
-			DEBUG("handling data (1.1)\n");
+				if (c->base)
+					c->step = NETCONF_MSG_STEP_HEADER_1;
+				else
+					c->step = NETCONF_MSG_STEP_HEADER_0;
 
-			if (c->msg_len > (data_len + strlen(XML_NETCONF_BASE_1_1_END))) {
-				c->step = NETCONF_MSG_STEP_DATA_1_BUF;
 				break;
-			}
 
-			if (data_len < strlen(XML_NETCONF_BASE_1_1_END)) {
-				/* leftovers from netcat testing */
-				ustream_consume(s, data_len);
-				break;
-			}
+			case NETCONF_MSG_STEP_HELLO_BUF:
+				DEBUG("handling hello buf\n");
 
-			buf2 = strstr(data, XML_NETCONF_BASE_1_1_END);
-			if (!buf2) {
-				connection_close(s);
-				return;
-			}
-
-			*buf2 = '\0';
-
-			DEBUG("received rpc\n\n %s\n\n", data);
-			rc = method_handle_message_rpc(data, &buf);
-			if (rc == -1) {
 				/* FIXME */
 				connection_close(s);
-				return;
-			}
 
-			DEBUG("sending rpc-reply\n\n %s\n\n", buf);
-			ustream_printf(s, "\n#%zu\n%s%s", strlen(buf), buf, XML_NETCONF_BASE_1_1_END);
-			free(buf);
+				break;
 
-			ustream_consume(s, buf2 + strlen(XML_NETCONF_BASE_1_1_END) - data);
-			c->msg_len = 0;
-
-			if (rc == 1) {
-				connection_close(s);
-				return;
-			}
-
-			if (c->base)
-				c->step = NETCONF_MSG_STEP_HEADER_1;
-			else
-				c->step = NETCONF_MSG_STEP_HEADER_0;
-
-			break;
-
-		case NETCONF_MSG_STEP_DATA_1_BUF:
-			DEBUG("handling data buf (1.1)\n");
-
-			/* FIXME */
-			connection_close(s);
-
-			break;
-
-		default:
-			break;
+			default:
+				break;
 		}
 
-	} while (1);
+		data = ustream_get_read_buf(s, &data_len);
+
+		if (!data) break;
+
+		switch (c->step)
+		{
+			case NETCONF_MSG_STEP_HEADER_1:
+				DEBUG("handling data header (1.1)\n");
+				buf1 = strchr(data, '#');
+
+				if (!buf1)
+				{
+					ustream_consume(s, data_len);
+					return;
+				}
+
+				buf2 = strstr(buf1, "\n<");
+
+				if (!buf2)
+				{
+					connection_close(s);
+					return;
+				}
+
+				*buf1 = ' ';
+				c->msg_len = strtoull(data, NULL, 10);
+				DEBUG("expecting incoming message length: %" PRIu64 "\n", c->msg_len);
+
+				ustream_consume(s, buf2 + 1 - data);
+				c->step = NETCONF_MSG_STEP_DATA_1;
+
+				break;
+
+			case NETCONF_MSG_STEP_HEADER_1_BUF:
+				DEBUG("handling data header buf (1.1)\n");
+
+				/* FIXME */
+				connection_close(s);
+
+				break;
+
+			default:
+				break;
+		}
+
+		data = ustream_get_read_buf(s, &data_len);
+
+		if (!data) break;
+
+		switch (c->step)
+		{
+			case NETCONF_MSG_STEP_DATA_1:
+				DEBUG("handling data (1.1)\n");
+
+				if (c->msg_len > (data_len + strlen(XML_NETCONF_BASE_1_1_END)))
+				{
+					c->step = NETCONF_MSG_STEP_DATA_1_BUF;
+					break;
+				}
+
+				if (data_len < strlen(XML_NETCONF_BASE_1_1_END))
+				{
+					/* leftovers from netcat testing */
+					ustream_consume(s, data_len);
+					break;
+				}
+
+				buf2 = strstr(data, XML_NETCONF_BASE_1_1_END);
+
+				if (!buf2)
+				{
+					connection_close(s);
+					return;
+				}
+
+				*buf2 = '\0';
+
+				DEBUG("received rpc\n\n %s\n\n", data);
+				rc = method_handle_message_rpc(data, &buf);
+
+				if (rc == -1)
+				{
+					/* FIXME */
+					connection_close(s);
+					return;
+				}
+
+				DEBUG("sending rpc-reply\n\n %s\n\n", buf);
+				ustream_printf(s, "\n#%zu\n%s%s", strlen(buf), buf, XML_NETCONF_BASE_1_1_END);
+				free(buf);
+
+				ustream_consume(s, buf2 + strlen(XML_NETCONF_BASE_1_1_END) - data);
+				c->msg_len = 0;
+
+				if (rc == 1)
+				{
+					connection_close(s);
+					return;
+				}
+
+				if (c->base)
+					c->step = NETCONF_MSG_STEP_HEADER_1;
+				else
+					c->step = NETCONF_MSG_STEP_HEADER_0;
+
+				break;
+
+			case NETCONF_MSG_STEP_DATA_1_BUF:
+				DEBUG("handling data buf (1.1)\n");
+
+				/* FIXME */
+				connection_close(s);
+
+				break;
+
+			default:
+				break;
+		}
+	}
+	while (1);
 }
 
 static void connection_accept_cb(struct uloop_fd *fd, unsigned int events)
@@ -251,18 +279,22 @@ static void connection_accept_cb(struct uloop_fd *fd, unsigned int events)
 
 	LOG("received new connection\n");
 
-	if (!next_connection) {
+	if (!next_connection)
+	{
 		next_connection = calloc(1, sizeof(*next_connection));
 	}
 
-	if (!next_connection) {
+	if (!next_connection)
+	{
 		ERROR("not enough memory to accept connection\n");
 		return;
 	}
 
 	c = next_connection;
 	sfd = accept(server.fd, (struct sockaddr *) &c->sin, &sl);
-	if (sfd < 0) {
+
+	if (sfd < 0)
+	{
 		ERROR("failed accepting connection\n");
 		return;
 	}
@@ -277,7 +309,9 @@ static void connection_accept_cb(struct uloop_fd *fd, unsigned int events)
 
 	DEBUG("crafting hello message\n");
 	rc = method_create_message_hello(&hello_message);
-	if (rc) {
+
+	if (rc)
+	{
 		ERROR("failed to create hello message\n");
 		close(sfd);
 		return;
@@ -300,7 +334,9 @@ connection_close(struct ustream *s)
 	int data_len;
 
 	data = ustream_get_read_buf(s, &data_len);
-	if (data) {
+
+	if (data)
+	{
 		ustream_consume(s, data_len);
 	}
 
@@ -315,7 +351,9 @@ int
 server_init()
 {
 	server.fd = usock(USOCK_TCP | USOCK_SERVER, config.addr, config.port);
-	if (server.fd < 0) {
+
+	if (server.fd < 0)
+	{
 		ERROR("unable to open socket %s:%s\n", config.addr, config.port);
 		return -1;
 	}

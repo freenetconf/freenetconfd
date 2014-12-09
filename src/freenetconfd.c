@@ -33,31 +33,41 @@ main(int argc, char **argv)
 	int rc = 0;
 
 	rc = config_load();
-	if (rc) {
+
+	if (rc)
+	{
 		ERROR("configuration loading failed\n");
 		goto exit;
 	}
 
 	rc = uloop_init();
-	if (rc) {
+
+	if (rc)
+	{
 		ERROR("uloop init failed\n");
 		goto exit;
 	}
 
 	rc = server_init();
-	if (rc) {
+
+	if (rc)
+	{
 		ERROR("server init failed\n");
 		goto exit;
 	}
 
 	rc = ubus_init();
-	if (rc) {
+
+	if (rc)
+	{
 		ERROR("ubus init failed\n");
 		goto exit;
 	}
 
 	rc = modules_init();
-	if (rc) {
+
+	if (rc)
+	{
 		ERROR("module loading failed\n");
 		goto exit;
 	}

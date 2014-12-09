@@ -36,7 +36,7 @@ __unused void destroy();
 struct module m;
 char *ns = "urn:ietf:params:xml:ns:yang:ietf-system";
 
-datastore_t root = {"root",NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,0,0};
+datastore_t root = {"root", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1, 0, 0};
 
 // FIXME: this is only a prototype
 static void generic_update(datastore_t *node)
@@ -68,7 +68,8 @@ static int create_store()
 	ds_add_child_create(ntp, "enabled", "false", NULL, NULL, 0); // bool
 
 	// server list
-	for (int i = 1; i < 3; i++) {
+	for (int i = 1; i < 3; i++)
+	{
 		//server
 		datastore_t *server = ds_add_child_create(ntp, "server", NULL, NULL, NULL, 0);
 		server->is_list = 1;
@@ -94,7 +95,8 @@ static int create_store()
 	ds_add_child_create(dns_resolver, "search", "localhost1", NULL, NULL, 0)->is_list = 1;
 	ds_add_child_create(dns_resolver, "search", "localhost2", NULL, NULL, 0)->is_list = 1;
 
-	for (int i = 1; i < 3; i++) {
+	for (int i = 1; i < 3; i++)
+	{
 		datastore_t *server = ds_add_child_create(dns_resolver, "server", NULL, NULL, NULL, 0);
 		char server_name[BUFSIZ];
 		snprintf(server_name, BUFSIZ, "server%d", i);
@@ -145,27 +147,29 @@ int rpc_set_current_datetime(struct rpc_data *data)
 		return RPC_ERROR;
 
 	DEBUG("rpc\n");
-	
+
 	roxml_add_node(data->out, 0, ROXML_ELM_NODE, "data", NULL);
-	
+
 	return RPC_DATA;
 }
 
 int rpc_system_restart(struct rpc_data *data)
 {
 	pid_t reboot_pid;
-	if( 0 == (reboot_pid = fork()) ) {
+
+	if ( 0 == (reboot_pid = fork()) )
+	{
 		reboot(LINUX_REBOOT_CMD_CAD_OFF);
 		exit(1); /* never reached if reboot cmd succeeds */
 	}
 
-	if(reboot_pid < 0)
+	if (reboot_pid < 0)
 		return RPC_ERROR;
 
 	int reboot_status;
 	waitpid(reboot_pid, &reboot_status, 0);
 
-	if( !WIFEXITED(reboot_status) || WEXITSTATUS(reboot_status) != 0)
+	if ( !WIFEXITED(reboot_status) || WEXITSTATUS(reboot_status) != 0)
 		return RPC_ERROR;
 
 	return RPC_DATA;
@@ -174,25 +178,28 @@ int rpc_system_restart(struct rpc_data *data)
 int rpc_system_shutdown(struct rpc_data *data)
 {
 	pid_t shutdown_pid;
-	if( 0 == (shutdown_pid = fork()) ) {
+
+	if ( 0 == (shutdown_pid = fork()) )
+	{
 		sync();
 		reboot(LINUX_REBOOT_CMD_HALT);
 		exit(1); /* never reached if reboot cmd succeeds */
 	}
 
-	if(shutdown_pid < 0)
+	if (shutdown_pid < 0)
 		return RPC_ERROR;
 
 	int shutdown_status;
 	waitpid(shutdown_pid, &shutdown_status, 0);
 
-	if( !WIFEXITED(shutdown_status) || WEXITSTATUS(shutdown_status) != 0)
+	if ( !WIFEXITED(shutdown_status) || WEXITSTATUS(shutdown_status) != 0)
 		return RPC_ERROR;
 
 	return RPC_DATA;
 }
 
-struct rpc_method rpc[] = {
+struct rpc_method rpc[] =
+{
 	{"set-current-datetime", rpc_set_current_datetime},
 	{"system-restart", rpc_system_restart},
 	{"system-shutdown", rpc_system_shutdown},

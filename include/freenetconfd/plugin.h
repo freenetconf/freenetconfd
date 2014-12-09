@@ -24,27 +24,31 @@
 
 enum response {RPC_OK, RPC_OK_CLOSE, RPC_DATA, RPC_ERROR, RPC_DATA_EXISTS, RPC_DATA_MISSING};
 
-struct rpc_data {
+struct rpc_data
+{
 	node_t *in;
 	node_t *out;
 	char *error;
 	int get_config;
 };
 
-struct rpc_method {
+struct rpc_method
+{
 	// rpc name for rpc_methods, xpath otherwise
 	const char *query;
 	int (*handler) (struct rpc_data *data);
 };
 
-struct module {
+struct module
+{
 	const struct rpc_method *rpcs;
 	int rpc_count;
 	char *ns;
 	struct datastore *datastore;
 };
 
-struct module_list {
+struct module_list
+{
 	struct list_head list;
 	char *name;
 	void *lib;

@@ -26,7 +26,8 @@
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
 #endif
 
-typedef struct datastore {
+typedef struct datastore
+{
 	char *name;
 	char *value;
 	char *ns;
@@ -55,13 +56,15 @@ typedef struct datastore {
 } datastore_t;
 
 
-typedef struct ds_key {
+typedef struct ds_key
+{
 	char *name;
 	char *value;
 	struct ds_key *next;
 } ds_key_t;
 
-typedef struct ds_nip {
+typedef struct ds_nip
+{
 	node_t *node;
 	struct ds_nip *next;
 	int is_head;
@@ -240,7 +243,7 @@ void ds_get_all(datastore_t *our_root, node_t *out, int get_config, int check_si
 
 void ds_get_all_keys(datastore_t *our_root, node_t *out, int get_config);
 
-void ds_get_list_data(node_t* filter_root, datastore_t* node, node_t* out, int get_config);
+void ds_get_list_data(node_t *filter_root, datastore_t *node, node_t *out, int get_config);
 
 void ds_get_filtered(node_t *filter_root, datastore_t *our_root, node_t *out, int get_config);
 

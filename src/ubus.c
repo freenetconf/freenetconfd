@@ -25,13 +25,13 @@
 static struct ubus_context *ubus = NULL;
 static struct ubus_object main_object;
 
-static const struct ubus_method fnd_methods[] = {
-};
+static const struct ubus_method fnd_methods[] = {};
 
 static struct ubus_object_type main_object_type =
 	UBUS_OBJECT_TYPE("freenetconfd", fnd_methods);
 
-static struct ubus_object main_object = {
+static struct ubus_object main_object =
+{
 	.name = "netconf",
 	.type = &main_object_type,
 	.methods = fnd_methods,
@@ -42,6 +42,7 @@ int
 ubus_init(void)
 {
 	ubus = ubus_connect(NULL);
+
 	if (!ubus) return -1;
 
 	ubus_add_uloop(ubus);

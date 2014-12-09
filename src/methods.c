@@ -44,7 +44,8 @@ static int method_handle_close_session(struct rpc_data *data);
 static int method_handle_kill_session(struct rpc_data *data);
 static int method_handle_get_schema(struct rpc_data *data);
 
-const struct rpc_method rpc_methods[] = {
+const struct rpc_method rpc_methods[] =
+{
 	{ "get", method_handle_get },
 	{ "get-config", method_handle_get_config },
 	{ "get-schema", method_handle_get_schema },
@@ -73,27 +74,37 @@ int method_analyze_message_hello(char *xml_in, int *base)
 	int tbase = -1;
 
 	node_t *root = roxml_load_buf(xml_in);
+
 	if (!root) goto exit;
 
 	node_t *hello = roxml_get_nodes(root, ROXML_ELM_NODE, "hello", 0);
+
 	if (!hello) goto exit;
 
 	/* rfc: must not have */
 	node_t *session_id = roxml_get_nodes(hello, ROXML_ELM_NODE, "session-id", 0);
+
 	if (session_id) goto exit;
 
 	nodes = roxml_xpath(root, "//capabilities/capability", &num_nodes);
-	for (int i = 0; i< num_nodes; i++) {
+
+	for (int i = 0; i < num_nodes; i++)
+	{
 		if (!nodes[i]) continue;
+
 		char *value = roxml_get_content(nodes[i], NULL, 0, NULL);
-		if (strcmp(value, "urn:ietf:params:netconf:base:1.1") == 0) {
+
+		if (strcmp(value, "urn:ietf:params:netconf:base:1.1") == 0)
+		{
 			tbase = 1;
-		} else if(strcmp(value, "urn:ietf:params:netconf:base:1.0") == 0) {
+		}
+		else if (strcmp(value, "urn:ietf:params:netconf:base:1.0") == 0)
+		{
 			tbase = 0;
 		}
 	}
 
-	if(tbase == -1)
+	if (tbase == -1)
 		goto exit;
 
 	*base = tbase;
@@ -119,31 +130,41 @@ int method_create_message_hello(char **xml_out)
 		session_id = 1;
 
 	node_t *root = roxml_load_buf(XML_NETCONF_HELLO);
-	if (!root) {
+
+	if (!root)
+	{
 		ERROR("unable to load 'netconf hello' message template\n");
 		goto exit;
 	}
 
 	node_t *n_hello = roxml_get_chld(root, NULL, 0);
-	if (!n_hello) {
+
+	if (!n_hello)
+	{
 		ERROR("unable to parse 'netconf hello' message template\n");
 		goto exit;
 	}
 
 	len = snprintf(c_session_id, BUFSIZ, "%d", session_id);
-	if (len <= 0) {
+
+	if (len <= 0)
+	{
 		ERROR("unable to convert session_id\n");
 		goto exit;
 	}
 
 	node_t *n_session_id = roxml_add_node(n_hello, 0, ROXML_ELM_NODE, "session-id", c_session_id);
-	if (!n_session_id) {
+
+	if (!n_session_id)
+	{
 		ERROR("unable to add session id node\n");
 		goto exit;
 	}
 
 	len = roxml_commit_changes(root, NULL, xml_out, 0);
-	if (len <= 0) {
+
+	if (len <= 0)
+	{
 		ERROR("unable to create 'netconf hello' message\n");
 		goto exit;
 	}
@@ -174,21 +195,26 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 	struct rpc_data data = { NULL, NULL, NULL, 0};
 
 	node_t *root_in = roxml_load_buf(xml_in);
+
 	if (!root_in) goto exit;
 
 	node_t *rpc_in = roxml_get_chld(root_in, NULL, 0);
+
 	if (!rpc_in) goto exit;
 
 	node_t *operation = roxml_get_chld(rpc_in, NULL, 0);
+
 	if (!operation) goto exit;
 
 	node_t *n_ns = roxml_get_ns(operation);
+
 	if (!n_ns) goto exit;
 
 	operation_name = roxml_get_name(operation, NULL, 0);
 	ns = roxml_get_content(n_ns, NULL, 0, NULL);
 
-	if (!operation_name || !ns) {
+	if (!operation_name || !ns)
+	{
 		ERROR("unable to extract rpc and namespace\n");
 		goto exit;
 	}
@@ -200,7 +226,9 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 
 	/* copy all arguments from rpc to rpc-reply */
 	int args = roxml_get_attr_nb(rpc_in);
-	for (int i = 0; i < args; i++) {
+
+	for (int i = 0; i < args; i++)
+	{
 
 		int flags = ROXML_ATTR_NODE;
 		node_t *n_arg = roxml_get_attr(rpc_in, NULL, i);
@@ -220,24 +248,33 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 	data.out = rpc_out;
 
 	const struct rpc_method *method = NULL;
-	for (int i = 0; i < ARRAY_SIZE(rpc_methods); i++) {
-		if (!strcmp(operation_name, rpc_methods[i].query)) {
+
+	for (int i = 0; i < ARRAY_SIZE(rpc_methods); i++)
+	{
+		if (!strcmp(operation_name, rpc_methods[i].query))
+		{
 			method = &rpc_methods[i];
 			break;
 		}
 	}
 
 	/* process modules */
-	if (!method) {
+	if (!method)
+	{
 		int found = 0;
 		struct list_head *modules = get_modules();
 		struct module_list *elem;
-		list_for_each_entry(elem, modules, list) {
+		list_for_each_entry(elem, modules, list)
+		{
 			if (found) break;
+
 			DEBUG("module: %s\n", elem->name);
-			for (int i = 0; i < elem->m->rpc_count; i++) {
+
+			for (int i = 0; i < elem->m->rpc_count; i++)
+			{
 				if (!strcmp(elem->m->rpcs[i].query, operation_name) &&
-					!strcmp(elem->m->ns, ns)) {
+					!strcmp(elem->m->ns, ns))
+				{
 					DEBUG("method found in module: %s (%s)\n", elem->m->rpcs[i].query, elem->m->ns);
 					method = &elem->m->rpcs[i];
 					found = 1;
@@ -246,28 +283,33 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 			}
 		}
 	}
-	if (!method) {
+
+	if (!method)
+	{
 		ERROR("method not supported\n");
 		data.error = netconf_rpc_error("method not supported", RPC_ERROR_TAG_OPERATION_NOT_SUPPORTED, 0, 0);
 		rc = RPC_ERROR;
-	} else {
+	}
+	else
+	{
 		rc = method->handler(&data);
 	}
 
-	switch (rc) {
+	switch (rc)
+	{
 		case RPC_OK:
 			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "ok", NULL);
 			rc = 0;
-		break;
+			break;
 
 		case RPC_OK_CLOSE:
 			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "ok", NULL);
 			rc = 1;
-		break;
+			break;
 
 		case RPC_DATA:
 			rc = 0;
-		break;
+			break;
 
 		case RPC_ERROR:
 			if (!data.error)
@@ -279,7 +321,7 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 			data.error = NULL;
 
 			rc = 0;
-		break;
+			break;
 
 		case RPC_DATA_EXISTS:
 			if (!data.error)
@@ -291,7 +333,7 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 			data.error = NULL;
 
 			rc = 0;
-		break;
+			break;
 
 		case RPC_DATA_MISSING:
 			if (!data.error)
@@ -303,12 +345,13 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 			data.error = NULL;
 
 			rc = 0;
-		break;
+			break;
 	}
 
 exit:
 
-	if (data.out) {
+	if (data.out)
+	{
 		roxml_commit_changes(data.out, NULL, xml_out, 0);
 		roxml_close(data.out);
 	}
@@ -330,36 +373,44 @@ method_handle_get(struct rpc_data *data)
 	struct list_head *modules = get_modules();
 	struct module_list *elem;
 
-	if ((n_filter = roxml_xpath(data->in, "//filter",&nb))) {
+	if ((n_filter = roxml_xpath(data->in, "//filter", &nb)))
+	{
 		nb = roxml_get_chld_nb(n_filter[0]);
 
 		/* empty filter */
 		if (!nb)
 			return RPC_DATA;
 
-		while(--nb >= 0) {
+		while (--nb >= 0)
+		{
 			n = roxml_get_chld(n_filter[0], NULL, nb);
 			char *module = roxml_get_name(n, NULL, 0);
 			char *ns = roxml_get_content(roxml_get_ns(n), NULL, 0, NULL);
 			DEBUG("filter for module: %s (%s)\n", module, ns);
 
-			list_for_each_entry(elem, modules, list) {
+			list_for_each_entry(elem, modules, list)
+			{
 				DEBUG("module: %s\n", elem->name);
-				if (!strcmp(ns, elem->m->ns)) {
+
+				if (!strcmp(ns, elem->m->ns))
+				{
 					DEBUG("calling module: %s (%s) \n", module, ns);
 					struct rpc_data d = {n, n_data, NULL, 0};
-					
+
 					get(&d, elem->m->datastore);
-					
+
 					break;
 				}
 			}
 		}
-	} else {
+	}
+	else
+	{
 		DEBUG("no filter requested, processing all modules\n");
-		list_for_each_entry(elem, modules, list) {
+		list_for_each_entry(elem, modules, list)
+		{
 			DEBUG("calling module: %s\n", elem->name);
-			n=data->in;
+			n = data->in;
 			struct rpc_data d = {n, n_data, NULL, 0};
 			get(&d, elem->m->datastore);
 		}
@@ -374,7 +425,8 @@ static int get(struct rpc_data *data, datastore_t *datastore)
 	char *ro_root_name = roxml_get_name(ro_root, NULL, 0);
 
 	// client requested get all
-	if (ro_root_name && !strcmp("get", ro_root_name)) {
+	if (ro_root_name && !strcmp("get", ro_root_name))
+	{
 		ds_get_all(datastore->child, data->out, data->get_config, 1);
 
 		return RPC_DATA;
@@ -399,6 +451,7 @@ static int
 method_handle_edit_config(struct rpc_data *data)
 {
 	node_t *config = roxml_get_chld(data->in, "config", 0);
+
 	if (!config) return RPC_ERROR;
 
 	struct list_head *modules = get_modules();
@@ -407,7 +460,9 @@ method_handle_edit_config(struct rpc_data *data)
 	int rc = RPC_OK;
 
 	int child_count = roxml_get_chld_nb(config);
-	for (int i = 0; i < child_count; i++) {
+
+	for (int i = 0; i < child_count; i++)
+	{
 		node_t *cur = roxml_get_chld(config, NULL, i);
 
 		char *module = roxml_get_name(cur, NULL, 0);
@@ -415,16 +470,19 @@ method_handle_edit_config(struct rpc_data *data)
 
 		DEBUG("edit_config for module: %s (%s)\n", module, ns);
 
-		list_for_each_entry(elem, modules, list) {
+		list_for_each_entry(elem, modules, list)
+		{
 			DEBUG("module: %s\n", elem->name);
 
-			if (!strcmp(ns, elem->m->ns)) {
+			if (!strcmp(ns, elem->m->ns))
+			{
 				DEBUG("calling module: %s (%s) \n", module, ns);
 				rc = ds_edit_config(cur, elem->m->datastore->child, NULL);
 				break;
 			}
 		}
 	}
+
 	return rc;
 }
 
@@ -473,12 +531,14 @@ static int method_handle_get_schema(struct rpc_data *data)
 	node_t *n_identifier, *n_version, *n_format;
 	char *c_identifier, *c_version, *c_format;
 	char *xml_entities[5][2] = {{"&", "&amp;"},
-						 {"\"", "&quot;"},
-						 {"\'", "&apos;"},
-						 {"<", "&lt;"},
-						 {">", "&gt;"}};
+		{"\"", "&quot;"},
+		{"\'", "&apos;"},
+		{"<", "&lt;"},
+		{">", "&gt;"}
+	};
 
-	if (!config.yang_dir) {
+	if (!config.yang_dir)
+	{
 		ERROR ("yang dir not specified\n");
 		goto exit;
 	}
@@ -488,7 +548,8 @@ static int method_handle_get_schema(struct rpc_data *data)
 	n_identifier = roxml_get_chld(data->in, "identifier", 0);
 	c_identifier = roxml_get_content(n_identifier, NULL, 0, NULL);
 
-	if (!n_identifier || !c_identifier) {
+	if (!n_identifier || !c_identifier)
+	{
 		ERROR("yang module identifier not specified\n");
 		goto exit;
 	}
@@ -503,21 +564,27 @@ static int method_handle_get_schema(struct rpc_data *data)
 	DEBUG("yang format:%s\n", c_format);
 
 	/* TODO: return rpc-error */
-	if (n_format && c_format && !strstr(c_format, "yang")) {
+	if (n_format && c_format && !strstr(c_format, "yang"))
+	{
 		ERROR("yang format not valid or supported\n");
 		goto exit;
 	}
 
 	snprintf(yang_module_filename, BUFSIZ, "%s/%s", config.yang_dir, c_identifier);
-	if (c_version) {
+
+	if (c_version)
+	{
 		snprintf(yang_module_filename + strlen(yang_module_filename), BUFSIZ, "@%s", c_version);
 	}
+
 	strncat(yang_module_filename, ".yang", 5);
 
 	DEBUG("yang filename:%s\n", yang_module_filename);
 
 	yang_module = fopen (yang_module_filename, "rb");
-	if (!yang_module) {
+
+	if (!yang_module)
+	{
 		ERROR("yang module:%s not found\n", yang_module_filename);
 		goto exit;
 	}
@@ -527,23 +594,28 @@ static int method_handle_get_schema(struct rpc_data *data)
 	fseek (yang_module, 0, SEEK_SET);
 	yang_module_content = malloc (yang_module_size);
 
-	if (!yang_module_content) {
+	if (!yang_module_content)
+	{
 		ERROR("unable to load yang module\n");
 		goto exit;
 	}
 
 	/* escape xml from yang module */
 	int c, pos = 0;
-	while ((c = fgetc(yang_module)) != EOF) {
+
+	while ((c = fgetc(yang_module)) != EOF)
+	{
 		char ch = (char) c;
 		int escape_found = 0;
 
-		for (int i = 0; i < 5; i++) {
+		for (int i = 0; i < 5; i++)
+		{
 			char r = xml_entities[i][0][0];
 			char *s = xml_entities[i][1];
 			int len = strlen(s);
 
-			if (r == ch) {
+			if (r == ch)
+			{
 				yang_module_size += len;
 				yang_module_content = realloc(yang_module_content, yang_module_size);
 				strncpy(yang_module_content + pos, s, len);
@@ -560,13 +632,17 @@ static int method_handle_get_schema(struct rpc_data *data)
 	yang_module_content[pos] = 0;
 
 	node_t *n_schema = roxml_add_node(data->out, 0, ROXML_ELM_NODE, "data", yang_module_content);
-	if (!n_schema) {
+
+	if (!n_schema)
+	{
 		ERROR("unable to add data node\n");
 		goto exit;
 	}
 
 	node_t *n_attr = roxml_add_node(n_schema, 0, ROXML_ATTR_NODE, "xmlns", "urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring");
-	if (!n_attr) {
+
+	if (!n_attr)
+	{
 		ERROR("unable to set attribute\n");
 		goto exit;
 	}
