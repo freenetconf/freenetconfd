@@ -257,9 +257,9 @@ void ds_free(datastore_t *datastore, int free_siblings)
 			datastore->next->prev = NULL;
 		}
 	}
-	else if
+	else if (datastore->prev)
 	{
-		(datastore->prev) datastore->prev->next = NULL;
+		datastore->prev->next = NULL;
 	}
 
 	ds_free(datastore->child, 1);
