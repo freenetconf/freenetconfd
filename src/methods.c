@@ -130,6 +130,7 @@ int method_create_message_hello(char **xml_out)
 		session_id = 1;
 
 	node_t *root = roxml_load_buf(XML_NETCONF_HELLO);
+	netconf_capabilites_from_yang(config.yang_dir, root);
 
 	if (!root)
 	{

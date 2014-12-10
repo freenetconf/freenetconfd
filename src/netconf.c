@@ -24,16 +24,31 @@
 #include <string.h>
 #include <stdlib.h>
 
-int netconf_capabilites_from_yang(char *yang_dir, char ***capabilities)
+int netconf_capabilites_from_yang(char *yang_dir, node_t *root)
 {
 	DIR *dir;
 	struct dirent *file;
 	int rc = 0;
 	char *revision;
 
+	if (!root)
+	{
+		ERROR("xml root not specified\n");
+		return 1;
+	}
+
 	if (!yang_dir)
 	{
 		ERROR("yang dir not specified\n");
+		return 1;
+	}
+
+	// get capabilities node
+	node_t *capabilities = roxml_get_chld(roxml_get_chld(root, "hello", 0), "capabilities", 0);
+
+	if (!capabilities)
+	{
+		ERROR("error in xml, <capabilities> not found\n");
 		return 1;
 	}
 
@@ -43,15 +58,8 @@ int netconf_capabilites_from_yang(char *yang_dir, char ***capabilities)
 		return 1;
 	}
 
-	int i = 0;
-
-	capabilities = NULL;
-
 	while ((file = readdir (dir)) != NULL)
 	{
-
-		capabilities = realloc(capabilities, i + 1);
-
 		// list only yang files
 		char *ext = strstr(file->d_name, ".yang");
 
@@ -62,17 +70,25 @@ int netconf_capabilites_from_yang(char *yang_dir, char ***capabilities)
 
 		// remove extension
 		ext[0] = 0;
-
 		revision = strstr(file->d_name, "@");
+
+		char *name = file->d_name;
+
+		char *capability_content = NULL;
 
 		if (!revision)
 		{
-			asprintf(capabilities[i], "<capability>%s:%s%s</capability>", YANG_NAMESPACE, file->d_name, "?module=");
+			asprintf(&capability_content, "%s:%s?module=%s", YANG_NAMESPACE, name, name);
 		}
 		else
 		{
-			asprintf(capabilities[i], "<capability>%s:%s%s&amp;revision=%s</capability>", YANG_NAMESPACE, file->d_name, "?module=", revision + 1);
+			*revision = '\0';
+			asprintf(&capability_content, "%s:%s?module=%s&amp;revision=%s", YANG_NAMESPACE, name, name, revision + 1);
 		}
+
+		roxml_add_node(capabilities, 0, ROXML_ELM_NODE, "capability", capability_content);
+		free (capability_content);
+		capability_content = NULL;
 	}
 
 	closedir(dir);

@@ -17,7 +17,9 @@
 #ifndef __FREENETCONFD_NETCONF_H__
 #define __FREENETCONFD_NETCONF_H__
 
-int netconf_capabilites_from_yang(char *yang_dir, char ***capabilities);
+#include <roxml.h>
+
+int netconf_capabilites_from_yang(char *yang_dir, node_t *root);
 
 /* RFC: http://tools.ietf.org/html/rfc6241#appendix-A */
 typedef enum rpc_error_tag
