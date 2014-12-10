@@ -395,7 +395,7 @@ method_handle_get(struct rpc_data *data)
 				if (!strcmp(ns, elem->m->ns))
 				{
 					DEBUG("calling module: %s (%s) \n", module, ns);
-					struct rpc_data d = {n, n_data, NULL, 0};
+					struct rpc_data d = {n, n_data, NULL, data->get_config};
 
 					get(&d, elem->m->datastore);
 
@@ -444,6 +444,7 @@ static int
 method_handle_get_config(struct rpc_data *data)
 {
 	// TODO: merge with get
+	data->get_config = 1;
 	return method_handle_get(data);
 }
 
