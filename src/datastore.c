@@ -328,6 +328,14 @@ int ds_set_value(datastore_t *datastore, char *value)
 	if (!datastore || !value)
 		return -1;
 
+	if (datastore->set)
+	{
+		int sr = datastore->set(value);
+
+		if (sr)
+			return RPC_ERROR; // TODO error-option
+	}
+
 	free(datastore->value);
 	datastore->value = strdup(value);
 
@@ -895,14 +903,6 @@ int ds_edit_config(node_t *filter_root, datastore_t *our_root, ds_nip_t *nodes_i
 				char *value = roxml_get_content(filter_root, NULL, 0, NULL);
 
 				DEBUG("set( %s, %s )\n", our_root->name, value);
-
-				if (our_root->set)
-				{
-					int sr = our_root->set(value);
-
-					if (sr)
-						return RPC_ERROR; // TODO error-option
-				}
 
 				ds_set_value(our_root, value);
 			}
