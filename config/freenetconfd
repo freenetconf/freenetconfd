@@ -5,3 +5,5 @@
 config freenetconfd
 	option addr '127.0.0.1'
 	option port '1831'
+	option yang_dir '/etc/yang/'
+	option modules_dir  '/usr/lib/freenetconfd/'
