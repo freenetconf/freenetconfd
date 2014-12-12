@@ -412,7 +412,7 @@ method_handle_get(struct rpc_data *data)
 		{
 			DEBUG("calling module: %s\n", elem->name);
 			n = data->in;
-			struct rpc_data d = {n, n_data, NULL, 0};
+			struct rpc_data d = {n, n_data, NULL, data->get_config};
 			get(&d, elem->m->datastore);
 		}
 	}
@@ -426,7 +426,7 @@ static int get(struct rpc_data *data, datastore_t *datastore)
 	char *ro_root_name = roxml_get_name(ro_root, NULL, 0);
 
 	// client requested get all
-	if (ro_root_name && !strcmp("get", ro_root_name))
+	if (ro_root_name && (!strcmp("get", ro_root_name) || !strcmp("get-config", ro_root_name)))
 	{
 		ds_get_all(datastore->child, data->out, data->get_config, 1);
 
