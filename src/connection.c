@@ -97,14 +97,14 @@ static void notify_read(struct ustream *s, int bytes)
 
 				if (!buf1)
 				{
-					LOG("start of hello message was not found");
+					LOG("start of hello message was not found\n");
 					connection_close(s);
 					return;
 				}
 
 				if (buf1 != data)
 				{
-					LOG("start of hello message not found where expected");
+					LOG("start of hello message not found where expected\n");
 					connection_close(s);
 					return;
 				}
