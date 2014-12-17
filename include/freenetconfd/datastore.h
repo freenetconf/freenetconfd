@@ -99,7 +99,7 @@ enum ds_operation {OPERATION_MERGE, OPERATION_REPLACE = 0, OPERATION_CREATE, OPE
 enum ds_operation ds_get_operation(node_t *node);
 
 /**
- * datastore_print_key() - prints all key names and values on standard output
+ * ds_print_key() - prints all key names and values on standard output
  * in a human readable format
  *
  * @key key to print
@@ -107,29 +107,29 @@ enum ds_operation ds_get_operation(node_t *node);
 void ds_print_key(ds_key_t *key);
 
 /**
- * datastore_free_key() - recursively frees memory for all key parts
+ * ds_free_key() - recursively frees memory for all key parts
  *
  * @key key to free
  *
  * Requires next to be correctly initialized to NULL to mark the list end.
- * Only frees datastore_key_t structures, does NOT free strings,
+ * Only frees ds_key_t structures, does NOT free strings,
  * you're going to have to free those yourself if you dynamically allocated
  * them manually.
- * Normally, roxml and datastore_free should handle this.
+ * Normally, roxml and ds_free should handle this.
  */
 void ds_free_key(ds_key_t *key);
 
 /**
- * datastore_get_key_from_xml() - locates nodes with values to be used as keys
+ * ds_get_key_from_xml() - locates nodes with values to be used as keys
  *
  * @root xml node_t where the search starts
  * @our_root datastore_t node to compare what key values are
  *
- * Return: datastore_key_t created from found xml data
+ * Return: ds_key_t created from found xml data
  *
  * locates nodes with values to be used as keys,
- * creates the datastore_key_t and returns the pointer to it. You're responsible
- * for freeing it (using datastore_free_key())
+ * creates the ds_key_t and returns the pointer to it. You're responsible
+ * for freeing it (using ds_free_key())
  *
  * our_root is useful for edit-config requests where we can't destinguish
  * between key values and values to set, if set to NULL, function will
@@ -138,7 +138,7 @@ void ds_free_key(ds_key_t *key);
 ds_key_t *ds_get_key_from_xml(node_t *root, datastore_t *our_root);
 
 /**
- * datastore_init() - inits datastore with name, value and namespace
+ * ds_init() - inits datastore with name, value and namespace
  *
  * @datastore pointer to a datastore you'd like to init
  * @name string you'd like to use for a name
@@ -152,17 +152,17 @@ ds_key_t *ds_get_key_from_xml(node_t *root, datastore_t *our_root);
 void ds_init(datastore_t *datastore, char *name, char *value, char *ns);
 
 /**
- * datastore_free() - frees the datastore you created with datastore_create()
+ * ds_free() - frees the datastore you created with datastore_create()
  *
  * @datastore datastore you'd like to free
  * @free_siblings set to 1 when freeing the whole datastore, 0 for freeing just that node
  *
  * set the datastore to NULL after this call to be on the safe side
  */
-void ds_free( datastore_t *datastore, int free_siblings );
+void ds_free(datastore_t *datastore, int free_siblings);
 
 /**
- * datastore_create() - creates datastore and inits it
+ * ds_create() - creates datastore and inits it
  *
  * @name string you'd like to use for a name
  * @value value it has
@@ -205,7 +205,7 @@ int ds_set_value(datastore_t *datastore, char *value);
 void ds_set_is_config(datastore_t *datastore, int is_config, int set_siblings);
 
 /**
- * datastore_add_child() - adds a child to datastore node
+ * ds_add_child() - adds a child to datastore node
  *
  * @self datastore to add to
  * @child child you want to add
@@ -221,7 +221,7 @@ datastore_t *ds_add_child_create(datastore_t *datastore, char *name, char *value
 
 datastore_t *ds_add_from_filter(datastore_t *datastore, node_t *filter_root, ds_nip_t *nip);
 
-datastore_t *ds_find_sibling( datastore_t *root, char *name, char *value );
+datastore_t *ds_find_sibling(datastore_t *root, char *name, char *value);
 
 /**
  * ds_find_child() - finds roots child by name and value
