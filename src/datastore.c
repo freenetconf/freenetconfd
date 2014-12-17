@@ -745,10 +745,14 @@ void ds_get_filtered(node_t *filter_root, datastore_t *our_root, node_t *out, in
 
 int ds_edit_config(node_t *filter_root, datastore_t *our_root, ds_nip_t *nodes_in_processing)
 {
-	if (!filter_root || !our_root)
+	if (!filter_root)
 		return 0;
 
+	// always add nodes to nip if they exist
 	ds_nip_t *nip = ds_nip_add_unique(nodes_in_processing, filter_root);
+
+	if(!our_root)
+		return 0;
 
 	// finding match
 	char *filter_name = roxml_get_name(filter_root, NULL, 0);
