@@ -48,8 +48,32 @@ typedef struct datastore
 	 */
 	int (*set) (char *value);
 	int (*set_multiple) (struct datastore *self, node_t *filter);
+	/**
+	 * del() - called when delete of node self is requested
+	 *
+	 * @self caller node
+	 *
+	 * If you're implementing del(), you should probably also
+	 * implement create_child() on parent
+	 */
 	int (*del) (struct datastore *self, void *data);
-	int (*create) (struct datastore *self, void *data);
+	/**
+	 * create_child() - called when freenetconfd wants to create child to datastore self
+	 *
+	 * @self caller node
+	 * See ds_add_child_create for other parameters
+	 *
+	 * Return: correctly created and initialized datastore
+	 *
+	 * You should implement this for any node whos child has delete callback.
+	 * Consider implementing anyway for any node whos children have their properties
+	 * set to anything else other than default.
+	 *
+	 * Usual implementation consists of calling ds_add_child_create() with all the received
+	 * parameters and initializing callback pointers and properties.
+	 * See 'filer' example for additional info.
+	 */
+	struct datastore *(*create_child) (struct datastore *self, char *name, char *value, char *ns, char *target_name, int target_position);
 	int is_config;
 	int is_list;
 	int is_key;

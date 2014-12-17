@@ -214,7 +214,8 @@ void ds_init(datastore_t *datastore, char *name, char *value, char *ns)
 	datastore->get = NULL;
 	datastore->set = NULL;
 	datastore->set_multiple = NULL;
-	datastore->del = datastore->create = NULL;
+	datastore->del = NULL;
+	datastore->create_child = NULL;
 	datastore->update = NULL;
 	datastore->is_config = 1;
 	datastore->is_list = datastore->is_key = 0;
@@ -310,7 +311,8 @@ datastore_t *ds_create_path(datastore_t *root, node_t *path_endpoint)
 		datastore_t *child = ds_find_child(root->parent, cur_name, cur_value);
 
 		if (!child)
-			root = ds_add_child_create(root, cur_name, cur_value, NULL, NULL, 0);
+			root = root->create_child ? (datastore_t *) root->create_child(root, cur_name, cur_value, NULL, NULL, 0)
+									  : ds_add_child_create(root, cur_name, cur_value, NULL, NULL, 0);
 		else
 			root = child;
 
@@ -434,12 +436,11 @@ datastore_t *ds_add_from_filter(datastore_t *datastore, node_t *filter_root, ds_
 	DEBUG("add_from_filter( %s, %s )\n", name, roxml_get_content(filter_root, NULL, 0, NULL));
 	DEBUG("\tadding_to %s->%s\n", datastore->parent->name, datastore->name);
 
-	datastore_t *rc = ds_add_child_create(datastore,
-										  name,
-										  roxml_get_content(filter_root, NULL, 0, NULL),
-										  roxml_get_content(roxml_get_ns(filter_root), NULL, 0, NULL),
-										  name, 0
-										 );
+	char *value = roxml_get_content(filter_root, NULL, 0, NULL);
+	char *ns = roxml_get_content(roxml_get_ns(filter_root), NULL, 0, NULL);
+
+	datastore_t *rc = datastore->create_child ? (datastore_t *) datastore->create_child(datastore, name, value, ns, name, 0)
+											  : ds_add_child_create(datastore, name, value, ns, name, 0);
 
 	ds_nip_delete(nip, filter_root);
 
