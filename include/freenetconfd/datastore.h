@@ -162,6 +162,11 @@ void ds_init(datastore_t *datastore, char *name, char *value, char *ns);
 void ds_free(datastore_t *datastore, int free_siblings);
 
 /**
+ * ds_delete() - does same as ds_free() but calls closest available del callbacks before
+ */
+void ds_delete(datastore_t *datastore, int free_siblings);
+
+/**
  * ds_create() - creates datastore and inits it
  *
  * @name string you'd like to use for a name

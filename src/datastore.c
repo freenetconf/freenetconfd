@@ -268,6 +268,25 @@ void ds_free(datastore_t *datastore, int free_siblings)
 	free(datastore);
 }
 
+void ds_delete(datastore_t *datastore, int free_siblings)
+{
+	if (!datastore)
+		return;
+
+	if (free_siblings && datastore->next)
+		ds_delete(datastore->next, free_siblings);
+
+	if (datastore->del)
+	{
+		datastore->del(datastore, NULL);
+		ds_free(datastore, 0);
+		return;
+	}
+
+	ds_delete(datastore->child, 1);
+	ds_free(datastore, 0);
+}
+
 datastore_t *ds_create(char *name, char *value, char *ns)
 {
 	datastore_t *datastore = malloc(sizeof(datastore_t));
@@ -811,10 +830,7 @@ int ds_edit_config(node_t *filter_root, datastore_t *our_root, ds_nip_t *nodes_i
 
 			DEBUG("delete( %s, %s )\n", child->name, child->value);
 
-			if (child->del)
-				child->del(child, NULL); // TODO figure out what del() does and what it needs to take as arguments
-
-			ds_free(child, 0);
+			ds_delete(child, 0);
 			ds_nip_delete(nip, filter_root);
 
 			return 0;
