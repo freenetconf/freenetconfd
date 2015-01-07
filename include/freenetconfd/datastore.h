@@ -18,6 +18,8 @@
 #ifndef __FREENETCONFD_DATASTORE_H__
 #define __FREENETCONFD_DATASTORE_H__
 
+#define DATASTORE_ROOT_DEFAULT { "root", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1, 0, 0 }
+
 #include <freenetconfd/plugin.h>
 
 #include <roxml.h>
