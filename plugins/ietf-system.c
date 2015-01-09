@@ -36,7 +36,7 @@ __unused void destroy();
 struct module m;
 char *ns = "urn:ietf:params:xml:ns:yang:ietf-system";
 
-datastore_t root = {"root", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1, 0, 0};
+datastore_t root = DATASTORE_ROOT_DEFAULT;
 
 // FIXME: this is only a prototype
 static void generic_update(datastore_t *node)
