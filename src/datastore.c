@@ -43,7 +43,7 @@ static ds_nip_t *ds_nip_has_node(ds_nip_t *nip_list_head, node_t *node)
  * @nip_list_head nip_list_head representing the list
  * @node node to add to the list
  *
- * Return: pointer to nip_list_head
+ * Return: pointer to nip_list_head, NULL on error
  *
  * Creates new list if nip_list_head == NULL
  */
@@ -54,7 +54,7 @@ static ds_nip_t *ds_nip_add(ds_nip_t *nip_list_head, node_t *node)
 	if (!nip)
 	{
 		ERROR("not enough memory\n");
-		exit(1);
+		return NULL;
 	}
 
 	nip->node = node;
@@ -67,7 +67,7 @@ static ds_nip_t *ds_nip_add(ds_nip_t *nip_list_head, node_t *node)
 		if (!nip_list_head)
 		{
 			ERROR("not enough memory\n");
-			exit(1);
+			return NULL;
 		}
 
 		nip_list_head->is_head = 1;
@@ -206,7 +206,7 @@ ds_key_t *ds_get_key_from_xml(node_t *root, datastore_t *our_root)
 				if (!rc)
 				{
 					ERROR("not enough memory\n");
-					exit(1);
+					return NULL;
 				}
 
 				cur_key = rc;
@@ -218,7 +218,7 @@ ds_key_t *ds_get_key_from_xml(node_t *root, datastore_t *our_root)
 				if (!cur_key->next)
 				{
 					ERROR("not enough memory\n");
-					exit(1);
+					return NULL;
 				}
 
 				cur_key = cur_key->next;

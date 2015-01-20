@@ -51,7 +51,7 @@ static int module_load(char *modules_path, char *name, struct module_list **e)
 	if (!e)
 	{
 		ERROR("not enough memory to load module\n");
-		exit(1);
+		return -1;
 	}
 
 	char module_path[BUFSIZ];
