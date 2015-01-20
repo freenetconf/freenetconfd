@@ -50,12 +50,26 @@ static ds_nip_t *ds_nip_has_node(ds_nip_t *nip_list_head, node_t *node)
 static ds_nip_t *ds_nip_add(ds_nip_t *nip_list_head, node_t *node)
 {
 	ds_nip_t *nip = malloc(sizeof(ds_nip_t));
+
+	if (!nip)
+	{
+		ERROR("not enough memory\n");
+		exit(1);
+	}
+
 	nip->node = node;
 	nip->is_head = 0;
 
 	if (!nip_list_head)
 	{
 		nip_list_head = malloc(sizeof(ds_nip_t));
+
+		if (!nip_list_head)
+		{
+			ERROR("not enough memory\n");
+			exit(1);
+		}
+
 		nip_list_head->is_head = 1;
 		nip->next = NULL;
 	}
@@ -188,11 +202,25 @@ ds_key_t *ds_get_key_from_xml(node_t *root, datastore_t *our_root)
 			if (!rc)
 			{
 				rc = malloc(sizeof(ds_key_t));
+
+				if (!rc)
+				{
+					ERROR("not enough memory\n");
+					exit(1);
+				}
+
 				cur_key = rc;
 			}
 			else
 			{
 				cur_key->next = malloc(sizeof(ds_key_t));
+
+				if (!cur_key->next)
+				{
+					ERROR("not enough memory\n");
+					exit(1);
+				}
+
 				cur_key = cur_key->next;
 			}
 
