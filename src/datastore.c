@@ -360,7 +360,7 @@ int ds_set_value(datastore_t *datastore, char *value)
 
 	if (datastore->set)
 	{
-		int sr = datastore->set(value);
+		int sr = datastore->set(datastore, value);
 
 		if (sr)
 			return RPC_ERROR; // TODO error-option

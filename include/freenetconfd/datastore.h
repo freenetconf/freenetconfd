@@ -48,7 +48,7 @@ typedef struct datastore
 	 * freenetconf to update datastore value for you,
 	 * -1 on error
 	 */
-	int (*set) (char *value);
+	int (*set) (struct datastore *self, char *value);
 	int (*set_multiple) (struct datastore *self, node_t *filter);
 	/**
 	 * del() - called when delete of node self is requested
