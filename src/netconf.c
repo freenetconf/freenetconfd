@@ -144,8 +144,8 @@ char *netconf_rpc_error(char *msg, rpc_error_tag_t rpc_error_tag, rpc_error_type
 	if (rpc_error_severity > 0 && rpc_error_severity < __RPC_ERROR_SEVERITY_COUNT)
 		severity = rpc_error_severities[rpc_error_severity];
 
-	asprintf(&rpc_error, "<error_type>%s</error_type><error_tag>%s</error_tag>"
-			 "<error_severity>%s</error_severity><error_message xml:lang=\"en\">%s</error_message>", type, tag, severity, msg);
+	asprintf(&rpc_error, "<error-type>%s</error-type><error-tag>%s</error-tag>"
+			 "<error-severity>%s</error-severity><error-message xml:lang=\"en\">%s</error-message>", type, tag, severity, msg);
 
 	return rpc_error;
 }

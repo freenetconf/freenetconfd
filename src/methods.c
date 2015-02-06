@@ -316,7 +316,7 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 			if (!data.error)
 				data.error = netconf_rpc_error("UNKNOWN ERROR", 0, 0, 0);
 
-			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "rpc_error", data.error);
+			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "rpc-error", data.error);
 
 			free(data.error);
 			data.error = NULL;
@@ -328,7 +328,7 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 			if (!data.error)
 				data.error = netconf_rpc_error("Data exists!", RPC_ERROR_TAG_DATA_EXISTS, RPC_ERROR_TYPE_RPC, RPC_ERROR_SEVERITY_ERROR);
 
-			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "rpc_error", data.error);
+			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "rpc-error", data.error);
 
 			free(data.error);
 			data.error = NULL;
@@ -340,7 +340,7 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 			if (!data.error)
 				data.error = netconf_rpc_error("Data missing!", RPC_ERROR_TAG_DATA_MISSING, RPC_ERROR_TYPE_RPC, RPC_ERROR_SEVERITY_ERROR);
 
-			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "rpc_error", data.error);
+			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "rpc-error", data.error);
 
 			free(data.error);
 			data.error = NULL;
