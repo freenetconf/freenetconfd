@@ -29,6 +29,7 @@ SET(SOURCES
 	src/datastore.c
 	include/freenetconfd/datastore.h
 	include/freenetconfd/plugin.h
+	include/freenetconfd/netconf.h
 )
 
 ADD_EXECUTABLE(freenetconfd ${SOURCES})

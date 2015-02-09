@@ -21,12 +21,13 @@
 
 #include "freenetconfd/freenetconfd.h"
 #include "freenetconfd/datastore.h"
+#include "freenetconfd/netconf.h"
 
+#include "netconf.h"
 #include "methods.h"
 #include "messages.h"
 #include "config.h"
 #include "modules.h"
-#include "netconf.h"
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
@@ -288,7 +289,7 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 	if (!method)
 	{
 		ERROR("method not supported\n");
-		data.error = netconf_rpc_error("method not supported", RPC_ERROR_TAG_OPERATION_NOT_SUPPORTED, 0, 0);
+		data.error = netconf_rpc_error("method not supported", RPC_ERROR_TAG_OPERATION_NOT_SUPPORTED, 0, 0, NULL);
 		rc = RPC_ERROR;
 	}
 	else
@@ -314,7 +315,7 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 
 		case RPC_ERROR:
 			if (!data.error)
-				data.error = netconf_rpc_error("UNKNOWN ERROR", 0, 0, 0);
+				data.error = netconf_rpc_error("UNKNOWN ERROR", 0, 0, 0, NULL);
 
 			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "rpc-error", data.error);
 
@@ -326,7 +327,7 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 
 		case RPC_DATA_EXISTS:
 			if (!data.error)
-				data.error = netconf_rpc_error("Data exists!", RPC_ERROR_TAG_DATA_EXISTS, RPC_ERROR_TYPE_RPC, RPC_ERROR_SEVERITY_ERROR);
+				data.error = netconf_rpc_error("Data exists!", RPC_ERROR_TAG_DATA_EXISTS, RPC_ERROR_TYPE_RPC, RPC_ERROR_SEVERITY_ERROR, NULL);
 
 			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "rpc-error", data.error);
 
@@ -338,7 +339,7 @@ int method_handle_message_rpc(char *xml_in, char **xml_out)
 
 		case RPC_DATA_MISSING:
 			if (!data.error)
-				data.error = netconf_rpc_error("Data missing!", RPC_ERROR_TAG_DATA_MISSING, RPC_ERROR_TYPE_RPC, RPC_ERROR_SEVERITY_ERROR);
+				data.error = netconf_rpc_error("Data missing!", RPC_ERROR_TAG_DATA_MISSING, RPC_ERROR_TYPE_RPC, RPC_ERROR_SEVERITY_ERROR, NULL);
 
 			roxml_add_node(data.out, 0, ROXML_ELM_NODE, "rpc-error", data.error);
 

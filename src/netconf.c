@@ -16,6 +16,7 @@
  */
 
 #include "freenetconfd/freenetconfd.h"
+#include "freenetconfd/netconf.h"
 
 #include "netconf.h"
 #include "messages.h"
@@ -122,7 +123,7 @@ char *rpc_error_severities[__RPC_ERROR_SEVERITY_COUNT] =
 	"warning"
 };
 
-char *netconf_rpc_error(char *msg, rpc_error_tag_t rpc_error_tag, rpc_error_type_t rpc_error_type, rpc_error_severity_t rpc_error_severity )
+char *netconf_rpc_error(char *msg, rpc_error_tag_t rpc_error_tag, rpc_error_type_t rpc_error_type, rpc_error_severity_t rpc_error_severity, char *error_app_tag)
 {
 	// defaults
 	char *tag = "operation-failed";
@@ -144,8 +145,15 @@ char *netconf_rpc_error(char *msg, rpc_error_tag_t rpc_error_tag, rpc_error_type
 	if (rpc_error_severity > 0 && rpc_error_severity < __RPC_ERROR_SEVERITY_COUNT)
 		severity = rpc_error_severities[rpc_error_severity];
 
+	char *error_app_tag_buff = NULL;
+
+	if (error_app_tag)
+		asprintf(&error_app_tag_buff, "<error-app-tag>%s</error-app-tag>", error_app_tag);
+
 	asprintf(&rpc_error, "<error-type>%s</error-type><error-tag>%s</error-tag>"
-			 "<error-severity>%s</error-severity><error-message xml:lang=\"en\">%s</error-message>", type, tag, severity, msg);
+			 "<error-severity>%s</error-severity><error-message xml:lang=\"en\">%s</error-message>%s", type, tag, severity, msg, error_app_tag_buff ? error_app_tag_buff : "");
+
+	free(error_app_tag_buff);
 
 	return rpc_error;
 }
