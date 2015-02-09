@@ -79,6 +79,18 @@ typedef struct datastore
 	int is_config;
 	int is_list;
 	int is_key;
+
+	/**
+	 * choice_group - identifies the specific case in choice statement
+	 *
+	 * Defaults to 0, which means datastore_t doesn't belong to a choice_group
+	 *
+	 * Assign same positive value for all the cases in the same choice, but
+	 * different positive values for choices in the same container.
+	 *
+	 * You will just want to set it to 1 for most choices you encounter.
+	 */
+	int choice_group;
 } datastore_t;
 
 
@@ -175,11 +187,20 @@ void ds_free(datastore_t *datastore, int free_siblings);
 datastore_t *ds_create(char *name, char *value, char *ns);
 
 /**
- * ds_create_path() creates the same path in root, as that of path_endpoint
+ * ds_create_path() - creates the same path in root, as that of path_endpoint
  *
  * Return: node in datastore that matches that of path_endpoint
  */
 datastore_t *ds_create_path(datastore_t *root, node_t *path_endpoint);
+
+/**
+ * ds_purge_choice_group() - removes all nodes with choice_group from parent
+ *
+ * Call it *before* creating new node(s) from case
+ *
+ * Return: 0 on OK, -1 on error
+ */
+int ds_purge_choice_group(datastore_t *parent, int choice_group);
 
 /**
  * ds_set_value() - sets value to datastore

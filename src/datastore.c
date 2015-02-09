@@ -247,6 +247,7 @@ void ds_init(datastore_t *datastore, char *name, char *value, char *ns)
 	datastore->update = NULL;
 	datastore->is_config = 1;
 	datastore->is_list = datastore->is_key = 0;
+	datastore->choice_group = 0;
 }
 
 void ds_free(datastore_t *datastore, int free_siblings)
@@ -266,6 +267,7 @@ void ds_free(datastore_t *datastore, int free_siblings)
 	datastore->ns = NULL;
 	datastore->is_config = 1;
 	datastore->is_list = datastore->is_key = 0;
+	datastore->choice_group = 0;
 
 	if (free_siblings)
 	{
@@ -351,6 +353,26 @@ datastore_t *ds_create_path(datastore_t *root, node_t *path_endpoint)
 	ds_free_nip(node_list);
 
 	return root;
+}
+
+int ds_purge_choice_group(datastore_t *parent, int choice_group)
+{
+	if (!parent)
+		return -1;
+
+	if(!choice_group)
+		return 0;
+
+	for (datastore_t *child = parent->child; child; )
+	{
+		datastore_t *tmp = child;
+		child = child->next;
+
+		if (tmp->choice_group == choice_group)
+			ds_free(tmp, 0);
+	}
+
+	return 0;
 }
 
 int ds_set_value(datastore_t *datastore, char *value)
