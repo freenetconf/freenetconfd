@@ -327,6 +327,9 @@ datastore_t *ds_create_path(datastore_t *root, node_t *path_endpoint)
 		node_list = ds_nip_add(node_list, cur);
 	}
 
+	// get the real root of the plugin
+	root = root->parent;
+
 	// go down and create one by one
 	for (ds_nip_t *cur = node_list->next; cur; cur = cur->next)
 	{
@@ -337,8 +340,7 @@ datastore_t *ds_create_path(datastore_t *root, node_t *path_endpoint)
 
 		DEBUG("ds.create( %s, %s )\n", cur_name, cur_value);
 
-		DEBUG("\tparent: %s->%s\n", root->parent->name, root->name);
-		datastore_t *child = ds_find_child(root->parent, cur_name, cur_value);
+		datastore_t *child = ds_find_child(root, cur_name, cur_value);
 
 		if (!child)
 			root = root->create_child ? (datastore_t *) root->create_child(root, cur_name, cur_value, NULL, NULL, 0)
