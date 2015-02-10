@@ -991,6 +991,13 @@ exit_edit:
 			{
 				datastore_t *nn = ds_create_path(our_root, cur->node);
 				ds_set_value(nn, roxml_get_content(cur->node, NULL, 0, NULL));
+
+				// add whole trees if they are missing
+				int child_count = roxml_get_chld_nb(cur->node);
+				for (int i = 0; i < child_count; i++)
+				{
+					ds_add_from_filter(nn, roxml_get_chld(cur->node, NULL, i), nip);
+				}
 			}
 		}
 
