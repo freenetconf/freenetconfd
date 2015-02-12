@@ -343,10 +343,16 @@ datastore_t *ds_create_path(datastore_t *root, node_t *path_endpoint)
 		datastore_t *child = ds_find_child(root, cur_name, cur_value);
 
 		if (!child)
+		{
 			root = root->create_child ? (datastore_t *) root->create_child(root, cur_name, cur_value, NULL, NULL, 0)
 									  : ds_add_child_create(root, cur_name, cur_value, NULL, NULL, 0);
+			if (root->set)
+				root->set(root, cur_value);
+		}
 		else
+		{
 			root = child;
+		}
 
 		if (!child)
 			DEBUG("\tcreated %s->%s\n", root->parent->name, root->name);
@@ -493,6 +499,8 @@ datastore_t *ds_add_from_filter(datastore_t *datastore, node_t *filter_root, ds_
 
 	datastore_t *rc = datastore->create_child ? (datastore_t *) datastore->create_child(datastore, name, value, ns, name, 0)
 											  : ds_add_child_create(datastore, name, value, ns, name, 0);
+	if (rc->set)
+		rc->set(rc, value);
 
 	ds_nip_delete(nip, filter_root);
 
