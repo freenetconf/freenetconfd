@@ -879,9 +879,15 @@ int ds_edit_config(node_t *filter_root, datastore_t *our_root, ds_nip_t *nodes_i
 
 			return 0;
 		}
-		else if (operation == OPERATION_CREATE)
+
+		if (operation == OPERATION_CREATE &&
+			!(our_root->is_list && our_root->value && !ds_find_child(our_root->parent, filter_name, roxml_get_content(filter_root, NULL, 0, NULL))) )
 		{
+			// OPERATION_CREATE && not (our_root is leaf list and cannot find the leaf with desired value)
+			// when new value gets added to leaf list, we don't report that data exists
 			DEBUG("%s exists and cannot be created\n", roxml_get_name(filter_root, NULL, 0));
+
+			ds_nip_delete(nip, filter_root);
 			return RPC_DATA_EXISTS;
 		}
 
@@ -909,6 +915,7 @@ int ds_edit_config(node_t *filter_root, datastore_t *our_root, ds_nip_t *nodes_i
 					// we should create it
 					// since filter_root is already in nip, we gracefully exit
 					// node will be created
+					ds_nip_delete(nip, filter_root);
 					ds_free_key(key);
 					return 0;
 				}
@@ -962,7 +969,10 @@ int ds_edit_config(node_t *filter_root, datastore_t *our_root, ds_nip_t *nodes_i
 					rc = ds_edit_config(elem, our_root->child, nip);
 
 					if (rc)
+					{
+						ds_nip_delete(nip, filter_root);
 						goto exit_edit; // immediatelly return on error // TODO error-option
+					}
 				}
 			}
 			else
