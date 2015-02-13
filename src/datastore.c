@@ -902,12 +902,15 @@ int ds_edit_config(node_t *filter_root, datastore_t *our_root, ds_nip_t *nodes_i
 				ds_key_t *key = ds_get_key_from_xml(filter_root, our_root);
 				datastore_t *node = ds_find_node_by_key(our_root, key);
 
-				// we should be able to find the node with that key
 				if (!node)
 				{
-					DEBUG("!!!!!!!!!!!node\n");
+					// if we're here, operation is merge
+					// if the node with specified key doesn't exist,
+					// we should create it
+					// since filter_root is already in nip, we gracefully exit
+					// node will be created
 					ds_free_key(key);
-					return RPC_ERROR; // TODO error-option
+					return 0;
 				}
 
 				// replace values in datastore for all the values in filter
