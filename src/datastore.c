@@ -915,7 +915,6 @@ int ds_edit_config(node_t *filter_root, datastore_t *our_root, ds_nip_t *nodes_i
 					// we should create it
 					// since filter_root is already in nip, we gracefully exit
 					// node will be created
-					ds_nip_delete(nip, filter_root);
 					ds_free_key(key);
 					return 0;
 				}
