@@ -3,8 +3,6 @@ PROJECT(freenetconfd)
 ADD_DEFINITIONS(-Os -Wall --std=gnu11 -Wmissing-declarations -D_GNU_SOURCE)
 INCLUDE_DIRECTORIES(include)
 
-OPTION(PLUGIN_SUPPORT "build plugins" ON)
-
 FILE(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/build/modules")
@@ -54,12 +52,5 @@ TARGET_LINK_LIBRARIES(freenetconfd ${UCI_LIBRARIES} ${CMAKE_DL_LIBS})
 
 SET(PLUGIN_INCLUDE_FILES include/freenetconfd/freenetconfd.h include/freenetconfd/datastore.h include/freenetconfd/plugin.h)
 INSTALL(FILES ${PLUGIN_INCLUDE_FILES} DESTINATION usr/include/freenetconfd)
-
-IF (PLUGIN_SUPPORT)
-  ADD_LIBRARY(plugin_ietf_system MODULE plugins/ietf-system.c ${PLUGIN_INCLUDE_FILES})
-  SET_TARGET_PROPERTIES(plugin_ietf_system PROPERTIES OUTPUT_NAME ietf-system PREFIX "")
-  INSTALL(TARGETS plugin_ietf_system LIBRARY DESTINATION usr/lib/freenetconfd)
-  INSTALL(FILES yang/ietf-system@2014-08-06.yang DESTINATION etc/yang/)
-ENDIF ()
 
 INSTALL(TARGETS freenetconfd RUNTIME DESTINATION usr/bin)
