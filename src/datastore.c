@@ -769,7 +769,25 @@ void ds_get_filtered(node_t *filter_root, datastore_t *our_root, node_t *out, in
 			roxml_add_node(out, 0, ROXML_ATTR_NODE, "xmlns", our_root->ns); // add namespace
 
 		datastore_t *our_child = ds_find_child(our_root, roxml_get_name(filter_root_child, NULL, 0), NULL);
-		ds_get_filtered(filter_root_child, our_child, out, get_config);
+
+		if (our_child)
+		{
+			ds_get_filtered(filter_root_child, our_child, out, get_config);
+		}
+		else
+		{
+			// when fetching multiple nodes and some of them are missing, we have to check their siblings anyway
+			node_t *filter_root_child_sibling;
+			while ((filter_root_child_sibling = roxml_get_next_sibling(filter_root_child)))
+			{
+				datastore_t *child = ds_find_child(our_root, roxml_get_name(filter_root_child_sibling, NULL, 0), NULL);
+				if (child)
+				{
+					ds_get_filtered(filter_root_child_sibling, child, out, get_config);
+					break;
+				}
+			}
+		}
 	}
 	else if (our_root->is_list)
 	{
