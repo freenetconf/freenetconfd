@@ -18,7 +18,6 @@
 #define __FREENETCONFD_H__
 
 #include </opt/dev/libsysrepo/include/sysrepo/sysrepo.h>
-#include </opt/dev/libsysrepo/src/tcp.h>
 
 #define PROJECT_NAME "freenetconfd"
 
