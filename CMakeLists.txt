@@ -49,8 +49,6 @@ FIND_PACKAGE(UCI REQUIRED)
 INCLUDE_DIRECTORIES(${UCI_INCLUDE_DIR})
 TARGET_LINK_LIBRARIES(freenetconfd ${UCI_LIBRARIES} ${CMAKE_DL_LIBS})
 
-TARGET_LINK_LIBRARIES(freenetconfd sysrepo)
-
 
 SET(PLUGIN_INCLUDE_FILES include/freenetconfd/freenetconfd.h include/freenetconfd/datastore.h include/freenetconfd/plugin.h)
 INSTALL(FILES ${PLUGIN_INCLUDE_FILES} DESTINATION usr/include/freenetconfd)
