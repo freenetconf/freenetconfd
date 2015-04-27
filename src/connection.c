@@ -39,7 +39,6 @@ static struct connection *next_connection = NULL;
 enum netconf_msg_step
 {
 	NETCONF_MSG_STEP_HELLO,
-	NETCONF_MSG_STEP_HELLO_BUF,
 	NETCONF_MSG_STEP_HEADER_0,
 	NETCONF_MSG_STEP_HEADER_1,
 	NETCONF_MSG_STEP_HEADER_1_BUF,
@@ -113,8 +112,8 @@ static void notify_read(struct ustream *s, int bytes)
 
 				if (!buf2)
 				{
-					c->step = NETCONF_MSG_STEP_HELLO_BUF;
-					break;
+					DEBUG("end of netconf message was not found in this buffer\n");
+					return;
 				}
 
 				*buf2 = '\0';
@@ -133,14 +132,6 @@ static void notify_read(struct ustream *s, int bytes)
 					c->step = NETCONF_MSG_STEP_HEADER_1;
 				else
 					c->step = NETCONF_MSG_STEP_HEADER_0;
-
-				break;
-
-			case NETCONF_MSG_STEP_HELLO_BUF:
-				DEBUG("handling hello buf\n");
-
-				/* FIXME */
-				connection_close(s);
 
 				break;
 
