@@ -1,0 +1,12 @@
+Source: freenetconfd
+Section: devel
+Priority: optional
+Maintainer: Luka Perkov <luka.perkov@sartura.hr>
+Build-Depends: debhelper (>= 8.0.0), cmake, libroxml-dev
+Standards-Version: 3.9.4
+Homepage: http://www.freenetconf.org/
+
+Package: freenetconfd
+Architecture: amd64 i386
+Depends: libubox, libroxml0, ubus, uci
+Description: NETCONF server
