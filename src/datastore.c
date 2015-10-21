@@ -313,7 +313,7 @@ datastore_t *ds_create(char *name, char *value, char *ns)
 	return datastore;
 }
 
-datastore_t *ds_create_path(datastore_t *root, node_t *path_endpoint)
+datastore_t *ds_create_path(node_t *filter_root, datastore_t *root, node_t *path_endpoint)
 {
 	if (!root || !path_endpoint)
 		return root;
@@ -341,6 +341,14 @@ datastore_t *ds_create_path(datastore_t *root, node_t *path_endpoint)
 		DEBUG("ds.create( %s, %s )\n", cur_name, cur_value);
 
 		datastore_t *child = ds_find_child(root, cur_name, cur_value);
+
+		if (ds_list_has_key(child))
+		{
+			ds_key_t *key = ds_get_key_from_xml(filter_root, child);
+			datastore_t *node = ds_find_node_by_key(child, key);
+			if (!node)
+				child = NULL;
+		}
 
 		if (!child)
 		{
@@ -1027,7 +1035,7 @@ exit_edit:
 			}
 			else // create or merge or replace but needs to create the node
 			{
-				datastore_t *nn = ds_create_path(our_root, cur->node);
+				datastore_t *nn = ds_create_path(filter_root, our_root, cur->node);
 				ds_set_value(nn, roxml_get_content(cur->node, NULL, 0, NULL));
 
 				// add whole trees if they are missing

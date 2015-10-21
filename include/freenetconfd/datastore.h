@@ -191,7 +191,7 @@ datastore_t *ds_create(char *name, char *value, char *ns);
  *
  * Return: node in datastore that matches that of path_endpoint
  */
-datastore_t *ds_create_path(datastore_t *root, node_t *path_endpoint);
+datastore_t *ds_create_path(node_t *filter_root, datastore_t *root, node_t *path_endpoint);
 
 /**
  * ds_purge_choice_group() - removes all nodes with choice_group from parent
