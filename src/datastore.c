@@ -313,7 +313,7 @@ datastore_t *ds_create(char *name, char *value, char *ns)
 	return datastore;
 }
 
-datastore_t *ds_create_path(node_t *filter_root, datastore_t *root, node_t *path_endpoint)
+datastore_t *ds_create_path(datastore_t *root, node_t *path_endpoint)
 {
 	if (!root || !path_endpoint)
 		return root;
@@ -342,12 +342,14 @@ datastore_t *ds_create_path(node_t *filter_root, datastore_t *root, node_t *path
 
 		datastore_t *child = ds_find_child(root, cur_name, cur_value);
 
-		if (ds_list_has_key(child))
+		if (child && child->is_list && ds_list_has_key(child))
 		{
-			ds_key_t *key = ds_get_key_from_xml(filter_root, child);
+			ds_key_t *key = ds_get_key_from_xml(path_endpoint, child);
 			datastore_t *node = ds_find_node_by_key(child, key);
-			if (!node)
+			enum ds_operation operation = ds_get_operation(path_endpoint);
+			if (OPERATION_CREATE == operation && !node)
 				child = NULL;
+			ds_free_key(key);
 		}
 
 		if (!child)
@@ -909,12 +911,19 @@ int ds_edit_config(node_t *filter_root, datastore_t *our_root, ds_nip_t *nodes_i
 		if (operation == OPERATION_CREATE &&
 			!(our_root->is_list && our_root->value && !ds_find_child(our_root->parent, filter_name, roxml_get_content(filter_root, NULL, 0, NULL))) )
 		{
-			// OPERATION_CREATE && not (our_root is leaf list and cannot find the leaf with desired value)
-			// when new value gets added to leaf list, we don't report that data exists
-			DEBUG("%s exists and cannot be created\n", roxml_get_name(filter_root, NULL, 0));
 
-			ds_nip_delete(nip, filter_root);
-			return RPC_DATA_EXISTS;
+			ds_key_t *key = ds_get_key_from_xml(filter_root, our_root);
+			datastore_t *node = ds_find_node_by_key(our_root, key);
+			ds_free_key(key);
+			if (node)
+			{
+				// OPERATION_CREATE && not (our_root is leaf list and cannot find the leaf with desired value)
+				// when new value gets added to leaf list, we don't report that data exists
+				DEBUG("%s exists and cannot be created\n", roxml_get_name(filter_root, NULL, 0));
+
+				ds_nip_delete(nip, filter_root);
+				return RPC_DATA_EXISTS;
+			}
 		}
 
 		if (our_root->set_multiple)
@@ -1035,7 +1044,7 @@ exit_edit:
 			}
 			else // create or merge or replace but needs to create the node
 			{
-				datastore_t *nn = ds_create_path(filter_root, our_root, cur->node);
+				datastore_t *nn = ds_create_path(our_root, cur->node);
 				ds_set_value(nn, roxml_get_content(cur->node, NULL, 0, NULL));
 
 				// add whole trees if they are missing
